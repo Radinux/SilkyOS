@@ -9,12 +9,10 @@ static void barreUsage(const char *nom, uint32_t utilise, uint32_t total, int y)
 
   float ratio = total ? (float)utilise / total : 0;
 
-  // Couleur selon le taux d'occupation
   uint16_t couleur = TFT_GREEN;
-  if (ratio > 0.75f) couleur = TFT_RED;
-  else if (ratio > 0.5f) couleur = TFT_ORANGE;
+  if      (ratio > 0.75f) couleur = TFT_RED;
+  else if (ratio > 0.5f)  couleur = TFT_ORANGE;
 
-  // Libellé + chiffres
   spr.setFont(&fonts::Font2);
   spr.setTextDatum(top_left);
   spr.setTextColor(TH.texte, TH.fond);
@@ -25,49 +23,55 @@ static void barreUsage(const char *nom, uint32_t utilise, uint32_t total, int y)
   spr.drawString(String(utilise / 1024) + " / " + String(total / 1024) + " ko",
                  spr.width() - MARGE, y);
 
-  // Barre
   int yBarre = y + 20;
   spr.drawRoundRect(MARGE, yBarre, W, H, 3, TFT_DARKGREY);
   spr.fillRoundRect(MARGE + 1, yBarre + 1, (W - 2) * ratio, H - 2, 2, couleur);
 }
 
 void infosDraw() {
-  uint32_t heapTotal  = ESP.getHeapSize();
-  uint32_t heapLibre  = ESP.getFreeHeap();
-  uint32_t psramTotal = ESP.getPsramSize();
-  uint32_t psramLibre = ESP.getFreePsram();
-  uint32_t flashTotal = ESP.getFlashChipSize();
-  uint32_t croquis    = ESP.getSketchSize();
+  // --- Relevés système mis en cache : les interroger à chaque frame coûte cher ---
+  static uint32_t dernierReleve = 0;
+  static uint32_t heapTotal = 0, heapLibre = 0;
+  static uint32_t psramTotal = 0, psramLibre = 0;
 
-  // --- En-tête : puce ---
+  if (heapTotal == 0 || millis() - dernierReleve > 500) {
+    dernierReleve = millis();
+    heapTotal  = ESP.getHeapSize();
+    heapLibre  = ESP.getFreeHeap();
+    psramTotal = ESP.getPsramSize();
+    psramLibre = ESP.getFreePsram();
+  }
+
+  // --- Puce (valeurs constantes : lues une seule fois) ---
+  static String modele = ESP.getChipModel();
+  static String cpu    = String(ESP.getChipCores()) + " coeurs - "
+                       + String(getCpuFrequencyMhz()) + " MHz";
+
   spr.setFont(&fonts::Font2);
   spr.setTextDatum(top_center);
   spr.setTextColor(TFT_CYAN, TH.fond);
-  spr.drawString(ESP.getChipModel(), spr.width() / 2, 38);
+  spr.drawString(modele, spr.width() / 2, 40);
 
-  spr.setTextColor(TFT_DARKGREY, TH.fond);
   spr.setFont(&fonts::Font0);
-  spr.drawString(String(ESP.getChipCores()) + " coeurs - "
-                 + String(getCpuFrequencyMhz()) + " MHz",
-                 spr.width() / 2, 60);
+  spr.setTextColor(TFT_DARKGREY, TH.fond);
+  spr.drawString(cpu, spr.width() / 2, 62);
 
-  // --- Barres d'occupation ---
-  barreUsage("RAM",   heapTotal  - heapLibre,  heapTotal,  80);
-  barreUsage("PSRAM", psramTotal - psramLibre, psramTotal, 130);
-  barreUsage("Flash", croquis,                 flashTotal, 180);
+  // --- Mémoire ---
+  barreUsage("RAM",   heapTotal  - heapLibre,  heapTotal,  90);
+  barreUsage("PSRAM", psramTotal - psramLibre, psramTotal, 145);
 
   // --- Uptime ---
   uint32_t s = millis() / 1000;
-  char uptime[24];
+  char uptime[16];
   snprintf(uptime, sizeof(uptime), "%02lu:%02lu:%02lu",
            s / 3600, (s / 60) % 60, s % 60);
 
   spr.setFont(&fonts::Font2);
   spr.setTextDatum(top_center);
-  spr.setTextColor(TH.texte, TH.fond);
-  spr.drawString("Uptime", spr.width() / 2, 230);
+  spr.setTextColor(TFT_DARKGREY, TH.fond);
+  spr.drawString("Uptime", spr.width() / 2, 215);
 
   spr.setFont(&fonts::Font4);
   spr.setTextColor(TFT_GREEN, TH.fond);
-  spr.drawString(uptime, spr.width() / 2, 252);
+  spr.drawString(uptime, spr.width() / 2, 237);
 }

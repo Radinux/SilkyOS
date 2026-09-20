@@ -2,6 +2,7 @@
 #include "../Display.h"
 #include "../Storage.h"
 #include "../Settings.h"
+#include "../Network.h"
 
 static int8_t selReglage   = 0;
 static bool   modeEdition  = false;
@@ -88,6 +89,7 @@ void reglagesUpdate(int delta, const ButtonTracker::State &btn) {
     }
     if (btn.wasClicked) {
       modeEdition = false;
+      if (r.cible == &reglages.modeWifi) netApply(reglages.modeWifi);
       storageSave();
     }
   } else {

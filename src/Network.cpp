@@ -2,7 +2,11 @@
 #include <WiFiManager.h>
 #include "Network.h"
 #include "Storage.h"
+#include <WebServer.h>
+#include <ElegantOTA.h>
 
+static WebServer serveur(80);
+static bool serveurActif = false;
 static WiFiManager wm;
 static bool portailActif = false;
 
@@ -17,7 +21,6 @@ void netApply(uint8_t mode) {
       break;
 
     case ATS_WIFI_AP:
-      // Portail de configuration : non bloquant pour ne pas figer l'UI
       WiFi.mode(WIFI_AP_STA);
       wm.setConfigPortalBlocking(false);
       wm.startConfigPortal("ATS-OS-Setup");
@@ -28,9 +31,15 @@ void netApply(uint8_t mode) {
     case ATS_WIFI_STA:
       WiFi.mode(WIFI_STA);
       wm.setEnableConfigPortal(false);     // Pas de portail auto si echec
-      if (wm.autoConnect()) {
+        if (wm.autoConnect()) {
         Serial.printf("[WiFi] Connecte a %s (%s)\n",
                       WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+
+        ElegantOTA.begin(&serveur);      // page OTA sur /update
+        serveur.begin();
+        serveurActif = true;
+        Serial.printf("[OTA] Disponible sur http://%s/update\n",
+                      WiFi.localIP().toString().c_str());
       } else {
         Serial.println("[WiFi] Echec de connexion");
       }
@@ -44,7 +53,11 @@ void netInit() {
 
 // À appeler régulièrement quand le portail tourne
 void netTick() {
-  if (portailActif) wm.process();
+  if (portailActif)  wm.process();
+  if (serveurActif) {
+    serveur.handleClient();
+    ElegantOTA.loop();
+  }
 }
 
 bool netIsConnected() {
