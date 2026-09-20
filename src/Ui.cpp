@@ -184,8 +184,19 @@ void uiUpdate() {
     }
   }
 
-  // Rendu : un seul push par frame
-  if (aRedessiner || animationEnCours() || btn.isPressed || vientDeRelacher) {
+  // Rafraîchissement périodique pour les écrans à contenu dynamique
+  static uint32_t dernierRefresh = 0;
+  bool refreshPeriodique = false;
+
+  if (ecranActuel == ECRAN_APP && appActive == 1) {     // Écran Infos
+    if (millis() - dernierRefresh >= 500) {            // 1 Hz suffit
+      dernierRefresh = millis();
+      refreshPeriodique = true;
+    }
+  }
+
+  if (aRedessiner || animationEnCours() || btn.isPressed
+      || vientDeRelacher || refreshPeriodique) {
     if (ecranActuel == ECRAN_MENU) dessinerMenu();
     else                           dessinerApp();
 
