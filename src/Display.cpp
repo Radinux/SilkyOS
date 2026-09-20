@@ -1,5 +1,6 @@
 #include "Config.h"
 #include "Display.h"
+#include "Storage.h"
 
 // ---------- Configuration matérielle de l'écran ----------
 class LGFX : public lgfx::LGFX_Device {
@@ -60,8 +61,15 @@ void displayInit() {
   spr.setColorDepth(16);
   spr.createSprite(tft.width(), tft.height());
 
-  pinMode(PIN_LCD_BL, OUTPUT);
-  digitalWrite(PIN_LCD_BL, HIGH);
+  // Rétroéclairage en PWM (canal 0, 5 kHz, 8 bits)
+  ledcSetup(0, 5000, 8);
+  ledcAttachPin(PIN_LCD_BL, 0);
+  displaySetBrightness(reglages.luminosite);
+}
+
+void displaySetBrightness(uint8_t niveau) {
+  // Plancher à 10 : évite un écran noir irrécupérable
+  ledcWrite(0, max((uint8_t)10, niveau));
 }
 
 void displayPush() {

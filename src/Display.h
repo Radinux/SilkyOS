@@ -12,5 +12,6 @@ extern const Theme TH;
 
 void displayInit();
 void displayPush();          // Envoie le sprite à l'écran
+void displaySetBrightness(uint8_t niveau);    // ← ajout (0-255)
 
 #endif

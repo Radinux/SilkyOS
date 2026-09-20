@@ -116,29 +116,32 @@ static String valeurReglage(const Reglage &r) {
 
 static void dessinerReglages() {
   const int H_LIGNE = 34;
+  const int ESPACE  = 4;
   const int Y_DEBUT = 40;
+  const int MARGE_X = 8;
 
   spr.setFont(&fonts::Font2);
-  spr.setTextDatum(middle_left);
 
   for (uint8_t i = 0; i < NB_REGLAGES; i++) {
-    int y = Y_DEBUT + i * H_LIGNE;
+    int y = Y_DEBUT + i * (H_LIGNE + ESPACE);
+    int yTexte = y + H_LIGNE / 2;              // Centre vertical de la ligne
     bool actif = (i == selReglage);
 
-    // Fond de la ligne sélectionnée
     if (actif) {
       uint16_t fond = modeEdition ? TFT_ORANGE : TH.entete;
-      spr.fillRoundRect(6, y, spr.width() - 12, H_LIGNE - 4, 4, fond);
+      spr.fillRoundRect(MARGE_X, y, spr.width() - 2 * MARGE_X, H_LIGNE, 4, fond);
     }
 
     spr.setTextColor(actif && modeEdition ? TH.fond : TH.texte);
-    spr.drawString(listeReglages[i].nom, 14, y + H_LIGNE / 2 - 2);
 
-    // Valeur alignée à droite
+    // Nom à gauche
+    spr.setTextDatum(middle_left);
+    spr.drawString(listeReglages[i].nom, MARGE_X + 8, yTexte);
+
+    // Valeur à droite
     spr.setTextDatum(middle_right);
     spr.drawString(valeurReglage(listeReglages[i]),
-                   spr.width() - 14, y + H_LIGNE / 2 - 2);
-    spr.setTextDatum(middle_left);
+                   spr.width() - MARGE_X - 8, yTexte);
   }
 }
 
@@ -225,6 +228,7 @@ void uiUpdate() {
           case REG_VALEUR: {
             int v = *(uint8_t *)r.cible + delta * 5;    // Pas de 5
             *(uint8_t *)r.cible = constrain(v, r.min, r.max);
+            displaySetBrightness(reglages.luminosite);  // ← ICI
             break;
           }
           case REG_CHOIX: {
