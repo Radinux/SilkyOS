@@ -134,8 +134,8 @@ void uiUpdate() {
   }
   if (!btn.isPressed) longTraite = false;
 
-  if (ecranActuel == ECRAN_MENU) {
-    if (delta != 0) {
+    if (ecranActuel == ECRAN_MENU) {
+    if (delta != 0 && !animationEnCours()) {
       selection = (selection + delta) % NB_ITEMS;
       if (selection < 0) selection += NB_ITEMS;
       aRedessiner = true;
