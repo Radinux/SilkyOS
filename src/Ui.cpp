@@ -5,6 +5,7 @@
 #include "Encoder.h"
 #include "Button.h"
 #include "Ui.h"
+#include "Storage.h"
 
 // ---------- État de l'interface ----------
 enum Ecran { ECRAN_MENU, ECRAN_APP };
@@ -18,11 +19,10 @@ static ItemMenu menu[] = {
 };
 static const uint8_t NB_ITEMS = sizeof(menu) / sizeof(menu[0]);
 
-static Ecran    ecranActuel    = ECRAN_MENU;
-static int8_t   selection      = 0;
-static int8_t   appActive      = 0;
-static int      valeurCompteur = 0;
-static uint32_t debutAppui     = 0;
+static Ecran    ecranActuel = ECRAN_MENU;
+static int8_t   selection   = 0;
+static int8_t   appActive   = 0;
+static uint32_t debutAppui  = 0;
 
 static ButtonTracker bouton;
 
@@ -67,7 +67,6 @@ static void dessinerBarreAppui(const ButtonTracker::State &btn) {
   spr.fillRect(0, Y, spr.width(), H, TH.entete);
   spr.fillRect(0, Y, spr.width() * ratio, H, couleur);
 
-  // Repère du seuil "moyen"
   int xSeuil = spr.width() * ((float)SHORT_PRESS_INTERVAL / LONG_PRESS_INTERVAL);
   spr.drawFastVLine(xSeuil, Y, H, TH.texte);
 }
@@ -106,7 +105,7 @@ static void dessinerApp() {
     case 0:   // Compteur
       spr.setFont(&fonts::Font7);
       spr.setTextColor(menu[0].couleur, TH.fond);
-      spr.drawString(String(valeurCompteur), spr.width() / 2, 150);
+      spr.drawString(String(reglages.compteur), spr.width() / 2, 150);
       break;
 
     case 1:   // Infos
@@ -149,10 +148,11 @@ void uiUpdate() {
   int  delta       = encoderGetDelta();
   bool aRedessiner = false;
 
-  // Appui long : retour au menu principal
+  // Appui long : sauvegarde + retour au menu principal
   static bool longTraite = false;
   if (btn.isLongPressed && !longTraite) {
     longTraite  = true;
+    storageSave();
     ecranActuel = ECRAN_MENU;
     aRedessiner = true;
   }
@@ -171,15 +171,16 @@ void uiUpdate() {
     }
   } else {
     if (btn.wasShortPressed) {
+      storageSave();                    // Sauvegarde en quittant l'app
       ecranActuel = ECRAN_MENU;
       aRedessiner = true;
     }
     if (btn.wasClicked && appActive == 0) {
-      valeurCompteur = 0;
+      reglages.compteur = 0;
       aRedessiner = true;
     }
     if (delta != 0 && appActive == 0) {
-      valeurCompteur += delta;
+      reglages.compteur += delta;
       aRedessiner = true;
     }
   }
@@ -189,7 +190,7 @@ void uiUpdate() {
   bool refreshPeriodique = false;
 
   if (ecranActuel == ECRAN_APP && appActive == 1) {     // Écran Infos
-    if (millis() - dernierRefresh >= 500) {            // 1 Hz suffit
+    if (millis() - dernierRefresh >= 500) {
       dernierRefresh = millis();
       refreshPeriodique = true;
     }
