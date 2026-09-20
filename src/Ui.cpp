@@ -98,7 +98,7 @@ static void dessinerApp() {
 
   spr.setFont(&fonts::Font0);
   spr.setTextColor(TFT_DARKGREY, TH.fond);
-  spr.drawString("Moyen=retour  Long=menu", spr.width() / 2, spr.height() - 12);
+  spr.drawString("Clic=RAZ  Moyen=retour", spr.width() / 2, spr.height() - 12);
 
   displayPush();
 }
@@ -137,6 +137,11 @@ void uiUpdate() {
   } else {
     if (btn.wasShortPressed) {
       ecranActuel = ECRAN_MENU;
+      aRedessiner = true;
+    }
+    // ← Ajout : clic court dans le compteur = remise à zéro
+    if (btn.wasClicked && appActive == 0) {
+      valeurCompteur = 0;
       aRedessiner = true;
     }
     if (delta != 0 && appActive == 0) {
