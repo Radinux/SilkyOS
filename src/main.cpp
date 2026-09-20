@@ -13,5 +13,5 @@ void setup() {
 
 void loop() {
   uiUpdate();
-  delay(10);
+  delay(5);
 }
