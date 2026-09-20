@@ -15,7 +15,7 @@ App apps[] = {
   //  nom         couleur      onEnter        onUpdate        onDraw        onExit        dynamique
   { "Compteur", TFT_CYAN,   nullptr,       compteurUpdate, compteurDraw, compteurExit, false },
   { "Infos",    TFT_GREEN,  nullptr,       nullptr,        infosDraw,    nullptr,      true  },
-  { "Reglages", TFT_ORANGE, reglagesEnter, reglagesUpdate, reglagesDraw, reglagesExit, false },
+  { "Reglages", TFT_ORANGE, reglagesEnter, reglagesUpdate, reglagesDraw, reglagesExit, true  },
 };
 
 const uint8_t NB_APPS = sizeof(apps) / sizeof(apps[0]);

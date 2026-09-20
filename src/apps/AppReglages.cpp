@@ -3,8 +3,9 @@
 #include "../Storage.h"
 #include "../Settings.h"
 
-static int8_t selReglage  = 0;
-static bool   modeEdition = false;
+static int8_t selReglage   = 0;
+static bool   modeEdition  = false;
+static bool   sousEcran    = false;      // ← nouveau
 
 // Valeur d'un réglage, sous forme de texte
 static String valeurReglage(const Reglage &r) {
@@ -23,6 +24,15 @@ static String valeurReglage(const Reglage &r) {
 }
 
 void reglagesDraw() {
+  if (sousEcran) {
+    Reglage &r = listeReglages[selReglage];
+    if (r.draw) r.draw();
+    else {
+      // Filet de sécurité : sous-écran sans page → on revient à la liste
+      sousEcran = false;
+    }
+    return;
+  }
   const int H_LIGNE = 34;
   const int ESPACE  = 4;
   const int Y_DEBUT = 40;
@@ -52,7 +62,11 @@ void reglagesDraw() {
 
 void reglagesUpdate(int delta, const ButtonTracker::State &btn) {
   Reglage &r = listeReglages[selReglage];
-
+  // --- Sous-écran : seul le clic en sort ---
+  if (sousEcran) {
+    if (btn.wasClicked) sousEcran = false;
+    return;
+  }
   if (modeEdition) {
     // --- Modification de la valeur ---
     if (delta != 0) {
@@ -91,6 +105,9 @@ void reglagesUpdate(int delta, const ButtonTracker::State &btn) {
         case REG_ACTION:
           if (r.action) r.action();
           break;
+        case REG_SOUSMENU:
+          sousEcran = true;          // ← ouvre la page dédiée
+          break;
         default:
           modeEdition = true;
           break;
@@ -100,8 +117,10 @@ void reglagesUpdate(int delta, const ButtonTracker::State &btn) {
 }
 
 void reglagesEnter() {
+  Serial.println("[Reglages] Enter");
   selReglage  = 0;
-  modeEdition = false;      // Toujours repartir proprement
+  modeEdition = false;
+  sousEcran   = false;
 }
 
 void reglagesExit() {
