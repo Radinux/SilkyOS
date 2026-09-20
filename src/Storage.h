@@ -7,6 +7,7 @@ struct Reglages {
   int     compteur;
   uint8_t luminosite;
   bool    sensEncodeur;
+  uint8_t modeWifi;        // 0=OFF, 1=AP, 2=Box
 };
 
 extern Reglages reglages;

@@ -6,6 +6,7 @@
 #include "Button.h"
 #include "Ui.h"
 #include "Storage.h"
+#include "Settings.h"
 
 // ---------- État de l'interface ----------
 enum Ecran { ECRAN_MENU, ECRAN_APP };
@@ -21,6 +22,8 @@ static const uint8_t NB_ITEMS = sizeof(menu) / sizeof(menu[0]);
 
 static Ecran    ecranActuel = ECRAN_MENU;
 static int8_t   selection   = 0;
+static int8_t selReglage = 0;        // Ligne sélectionnée dans Réglages
+static bool   modeEdition = false;   // true = on modifie la valeur
 static int8_t   appActive   = 0;
 static uint32_t debutAppui  = 0;
 
@@ -96,6 +99,49 @@ static void dessinerMenu() {
   spr.drawString(menu[selection].nom, spr.width() / 2, (int)yHighlight + H_CASE / 2);
 }
 
+// Affiche la valeur d'un réglage sous forme de texte
+static String valeurReglage(const Reglage &r) {
+  switch (r.type) {
+    case REG_TOGGLE:
+      return *(bool *)r.cible ? "ON" : "OFF";
+    case REG_VALEUR:
+      return String(*(uint8_t *)r.cible);
+    case REG_CHOIX:
+      return r.options[*(uint8_t *)r.cible];
+    case REG_ACTION:
+      return ">";
+  }
+  return "";
+}
+
+static void dessinerReglages() {
+  const int H_LIGNE = 34;
+  const int Y_DEBUT = 40;
+
+  spr.setFont(&fonts::Font2);
+  spr.setTextDatum(middle_left);
+
+  for (uint8_t i = 0; i < NB_REGLAGES; i++) {
+    int y = Y_DEBUT + i * H_LIGNE;
+    bool actif = (i == selReglage);
+
+    // Fond de la ligne sélectionnée
+    if (actif) {
+      uint16_t fond = modeEdition ? TFT_ORANGE : TH.entete;
+      spr.fillRoundRect(6, y, spr.width() - 12, H_LIGNE - 4, 4, fond);
+    }
+
+    spr.setTextColor(actif && modeEdition ? TH.fond : TH.texte);
+    spr.drawString(listeReglages[i].nom, 14, y + H_LIGNE / 2 - 2);
+
+    // Valeur alignée à droite
+    spr.setTextDatum(middle_right);
+    spr.drawString(valeurReglage(listeReglages[i]),
+                   spr.width() - 14, y + H_LIGNE / 2 - 2);
+    spr.setTextDatum(middle_left);
+  }
+}
+
 static void dessinerApp() {
   spr.fillSprite(TH.fond);
   dessinerEntete(menu[appActive].nom);
@@ -118,9 +164,7 @@ static void dessinerApp() {
       break;
 
     case 2:   // Réglages
-      spr.setFont(&fonts::Font2);
-      spr.setTextColor(TH.texte, TH.fond);
-      spr.drawString("A venir...", spr.width() / 2, 150);
+      dessinerReglages();
       break;
   }
 
@@ -169,9 +213,68 @@ void uiUpdate() {
       ecranActuel = ECRAN_APP;
       aRedessiner = true;
     }
+    
+    } else if (appActive == 2) {
+    // ===== Écran Réglages =====
+    Reglage &r = listeReglages[selReglage];
+
+    if (modeEdition) {
+      // --- Modification de la valeur ---
+      if (delta != 0) {
+        switch (r.type) {
+          case REG_VALEUR: {
+            int v = *(uint8_t *)r.cible + delta * 5;    // Pas de 5
+            *(uint8_t *)r.cible = constrain(v, r.min, r.max);
+            break;
+          }
+          case REG_CHOIX: {
+            int v = (*(uint8_t *)r.cible + delta) % r.nbOptions;
+            if (v < 0) v += r.nbOptions;
+            *(uint8_t *)r.cible = v;
+            break;
+          }
+          default: break;
+        }
+        aRedessiner = true;
+      }
+      if (btn.wasClicked) {              // Valider
+        modeEdition = false;
+        storageSave();
+        aRedessiner = true;
+      }
+    } else {
+      // --- Navigation dans la liste ---
+      if (delta != 0) {
+        selReglage = (selReglage + delta) % NB_REGLAGES;
+        if (selReglage < 0) selReglage += NB_REGLAGES;
+        aRedessiner = true;
+      }
+      if (btn.wasClicked) {
+        switch (r.type) {
+          case REG_TOGGLE:
+            *(bool *)r.cible = !*(bool *)r.cible;    // Bascule直接
+            storageSave();
+            break;
+          case REG_ACTION:
+            if (r.action) r.action();
+            break;
+          default:
+            modeEdition = true;                       // Entre en édition
+            break;
+        }
+        aRedessiner = true;
+      }
+      if (btn.wasShortPressed) {
+        storageSave();
+        ecranActuel = ECRAN_MENU;
+        aRedessiner = true;
+      }
+    }
+
   } else {
+    // ===== Autres apps (Compteur, Infos) =====
     if (btn.wasShortPressed) {
-      storageSave();                    // Sauvegarde en quittant l'app
+      storageSave();
       ecranActuel = ECRAN_MENU;
       aRedessiner = true;
     }
