@@ -4,6 +4,7 @@
 #include "Encoder.h"
 #include "Storage.h"      // ← présent ?
 #include "Ui.h"
+#include "Network.h"
 
 void setup() {
   Serial.begin(115200);
@@ -14,17 +15,12 @@ void setup() {
   storageInit();          // ← présent ?
   displayInit();
   encoderInit();
+  netInit();          // après storageInit()
   uiInit();
 }
 
 void loop() {
   uiUpdate();
-  
-  static uint32_t t = 0;
-  if (millis() - t > 2000) {
-    t = millis();
-    Serial.printf("alive - compteur=%d\n", reglages.compteur);
-  }
-  
+  netTick();          // Fait tourner le portail de config sans bloquer
   delay(5);
 }
