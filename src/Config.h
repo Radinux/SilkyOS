@@ -7,6 +7,4 @@
 #define ENCODER_PIN_B         1
 #define ENCODER_PUSH_BUTTON  21
 
-#define ENCODEUR_SENS         -1   // -1 pour inverser
-
 #endif

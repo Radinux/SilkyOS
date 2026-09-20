@@ -4,7 +4,7 @@
 static Preferences prefs;
 static const char *NAMESPACE = "ats-os";
 
-Reglages reglages = { 0, 200, true, 0 };     // Ajout du 0 final
+Reglages reglages = { 0, 200, false, 0 };     // sensEncodeur = CW
 
 void storageInit() {
   prefs.begin(NAMESPACE, false);

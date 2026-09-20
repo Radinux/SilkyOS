@@ -9,7 +9,12 @@ static bool   modeEdition = false;
 // Valeur d'un réglage, sous forme de texte
 static String valeurReglage(const Reglage &r) {
   switch (r.type) {
-    case REG_TOGGLE: return *(bool *)r.cible ? "ON" : "OFF";
+    case REG_TOGGLE:
+      // Cas particulier : le sens d'encodeur s'affiche CW / CCW
+      if (r.cible == &reglages.sensEncodeur)
+        return *(bool *)r.cible ? "CCW" : "CW";
+      return *(bool *)r.cible ? "ON" : "OFF";
+
     case REG_VALEUR: return String(*(uint8_t *)r.cible);
     case REG_CHOIX:  return r.options[*(uint8_t *)r.cible];
     case REG_ACTION: return ">";

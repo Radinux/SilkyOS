@@ -15,7 +15,6 @@ void compteurDraw() {
 
   spr.setFont(&fonts::Font0);
   spr.setTextColor(TFT_DARKGREY, TH.fond);
-  spr.drawString("Clic=RAZ", spr.width() / 2, spr.height() - 22);
 }
 
 void compteurExit() {

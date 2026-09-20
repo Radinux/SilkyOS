@@ -1,5 +1,6 @@
 #include "Config.h"
 #include "Encoder.h"
+#include "Storage.h"
 
 static volatile int     compteurBrut = 0;
 static volatile uint8_t etat         = 0;
@@ -14,9 +15,11 @@ static void IRAM_ATTR isrEncodeur() {
   uint8_t entrees = (digitalRead(ENCODER_PIN_B) << 1) | digitalRead(ENCODER_PIN_A);
   etat = tableEtats[etat & 0x0F][entrees];
 
+  int8_t sens = reglages.sensEncodeur ? 1 : -1;    // Lit le réglage utilisateur
+
   uint8_t dir = etat & 0x30;
-  if (dir == 0x10)      compteurBrut += ENCODEUR_SENS;
-  else if (dir == 0x20) compteurBrut -= ENCODEUR_SENS;
+  if (dir == 0x10)      compteurBrut += sens;
+  else if (dir == 0x20) compteurBrut -= sens;
 }
 
 void encoderInit() {
