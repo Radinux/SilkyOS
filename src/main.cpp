@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <LovyanGFX.hpp>
+#include <Button.h>
 
 #define PIN_POWER_ON         15
 #define PIN_LCD_BL           38
@@ -41,6 +42,7 @@ public:
 };
 
 LGFX tft;
+ButtonTracker bouton; 
 
 // ---------- Encodeur ----------
 volatile int compteur = 0;
@@ -69,6 +71,15 @@ void afficherCompteur() {
   tft.drawString(String(compteur), tft.width() / 2, tft.height() / 2, 7);
 }
 
+// ---------- Logique bouton ----------
+void afficherMessage(const char *texte, uint16_t couleur) {
+  tft.fillRect(0, 140, tft.width(), 30, TFT_BLACK);
+  tft.setFont(&fonts::Font2);
+  tft.setTextColor(couleur, TFT_BLACK);
+  tft.setTextDatum(middle_center);
+  tft.drawString(texte, tft.width() / 2, 152);
+}
+
 void setup() {
   // ⚠️ Régulateur externe : sans ça, rien ne s'allume
   pinMode(PIN_POWER_ON, OUTPUT);
@@ -95,22 +106,41 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_B), lireEncodeur, CHANGE);
 
   afficherCompteur();
+  
 }
 
 void loop() {
+  // --- Affichage du compteur ---
   static int dernier = 0;
-
   if (compteur != dernier) {
-    tft.fillRect(0, 50, tft.width(), 80, TFT_BLACK);  // Efface l'ancienne valeur
+    tft.fillRect(0, 50, tft.width(), 80, TFT_BLACK);
     afficherCompteur();
     dernier = compteur;
     Serial.printf("Compteur : %d\n", compteur);
   }
 
-  if (digitalRead(ENCODER_PUSH_BUTTON) == LOW) {
-    compteur = 0;
-    delay(300);
+  // --- Gestion du bouton ---
+  bool enfonce = (digitalRead(ENCODER_PUSH_BUTTON) == LOW);
+  ButtonTracker::State btn = bouton.update(enfonce);
+
+  if (btn.wasClicked) {
+    Serial.println("CLIC");
+    afficherMessage("CLIC", TFT_GREEN);
   }
+
+  if (btn.wasShortPressed) {
+    Serial.println("MOYEN");
+    afficherMessage("MOYEN", TFT_ORANGE);
+  }
+
+  static bool longTraite = false;
+  if (btn.isLongPressed && !longTraite) {
+    longTraite = true;
+    Serial.println("LONG");
+    afficherMessage("LONG", TFT_RED);
+    compteur = 0;                    // Remise à zéro sur appui long
+  }
+  if (!btn.isPressed) longTraite = false;
 
   delay(10);
 }
