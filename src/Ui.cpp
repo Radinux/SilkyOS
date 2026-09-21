@@ -1,179 +1,160 @@
 #include <Arduino.h>
-#include <math.h>
-#include "Config.h"
-#include "Display.h"
-#include "Encoder.h"
-#include "Button.h"
-#include "Storage.h"
+#include <lvgl.h>
 #include "App.h"
+#include "Lvgl.h"
 #include "Ui.h"
+#include "Button.h"     // Pour SHORT_PRESS_INTERVAL et LONG_PRESS_INTERVAL
 
-// ---------- État de la navigation ----------
-enum Ecran { ECRAN_MENU, ECRAN_APP };
+static int8_t appActive = -1;    // -1 = on est dans le menu
+static int8_t selection = 0;     // Dernière app choisie (pour restaurer le focus)
 
-static Ecran    ecranActuel = ECRAN_MENU;
-static int8_t   selection   = 0;
-static int8_t   appActive   = 0;
-static uint32_t debutAppui  = 0;
+static lv_obj_t *barreAppui = nullptr;
 
-static ButtonTracker bouton;
+// Barre d'appui sur le calque supérieur : visible par-dessus tous les écrans
+static void creerBarreAppui() {
+  barreAppui = lv_bar_create(lv_layer_top());
+  lv_obj_set_size(barreAppui, lv_pct(100), 6);
+  lv_obj_align(barreAppui, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_obj_set_style_radius(barreAppui, 0, 0);
+  lv_obj_set_style_radius(barreAppui, 0, LV_PART_INDICATOR);
+  lv_bar_set_range(barreAppui, 0, LONG_PRESS_INTERVAL);
+  lv_group_remove_obj(barreAppui);            // Jamais focusable par l'encodeur
 
-// ---------- Mise en page du menu ----------
-static const int MARGE  = 12;
-static const int H_CASE = 80;
-static const int ESPACE = 10;
-static const int Y0     = 40;
-static const int PAS    = H_CASE + ESPACE;
+  // Repère blanc au seuil "moyen", positionné en pourcentage
+  lv_obj_t *repere = lv_obj_create(barreAppui);
+  lv_obj_set_size(repere, 2, lv_pct(100));
+  lv_obj_set_x(repere, lv_pct(SHORT_PRESS_INTERVAL * 100 / LONG_PRESS_INTERVAL));
+  lv_obj_set_style_bg_color(repere, lv_color_white(), 0);
+  lv_obj_set_style_border_width(repere, 0, 0);
+  lv_obj_set_style_radius(repere, 0, 0);
+  lv_obj_set_style_pad_all(repere, 0, 0);
+  lv_obj_set_scrollable(repere, false);
 
-static float yHighlight = -1;
-
-// ---------- Chrome (éléments communs à tous les écrans) ----------
-static void dessinerEntete(const char *titre) {
-  spr.fillRect(0, 0, spr.width(), 28, TH.entete);
-  spr.setFont(&fonts::Font2);
-  spr.setTextColor(TH.texte, TH.entete);
-  spr.setTextDatum(middle_center);
-  spr.drawString(titre, spr.width() / 2, 14);
+  lv_obj_set_hidden(barreAppui, true);
 }
 
-static bool animationEnCours() {
-  return fabs((Y0 + selection * PAS) - yHighlight) > 0.5f;
-}
+// Appelée à chaque loop : suit la durée de l'appui en cours
+static void majBarreAppui() {
+  static bool visible = false;
 
-static void dessinerBarreAppui(const ButtonTracker::State &btn) {
-  if (!btn.isPressed) return;
-
-  uint32_t duree = millis() - debutAppui;
-
-  uint16_t couleur;
-  if      (duree < SHORT_PRESS_INTERVAL) couleur = TFT_GREEN;
-  else if (duree < LONG_PRESS_INTERVAL)  couleur = TFT_ORANGE;
-  else                                   couleur = TFT_RED;
-
-  float ratio = min((float)duree / LONG_PRESS_INTERVAL, 1.0f);
-
-  const int H = 6;
-  const int Y = spr.height() - H;
-
-  spr.fillRect(0, Y, spr.width(), H, TH.entete);
-  spr.fillRect(0, Y, spr.width() * ratio, H, couleur);
-
-  int xSeuil = spr.width() * ((float)SHORT_PRESS_INTERVAL / LONG_PRESS_INTERVAL);
-  spr.drawFastVLine(xSeuil, Y, H, TH.texte);
-}
-
-static void dessinerMenu() {
-  const int w = spr.width() - 2 * MARGE;
-
-  float cible = Y0 + selection * PAS;
-  if (yHighlight < 0) yHighlight = cible;
-  yHighlight += (cible - yHighlight) * 0.3f;
-
-  spr.fillSprite(TH.fond);
-  dessinerEntete("ATS-OS");
-
-  spr.setFont(&fonts::Font4);
-  spr.setTextDatum(middle_center);
-
-  for (uint8_t i = 0; i < NB_APPS; i++) {
-    int y = Y0 + i * PAS;
-    spr.drawRoundRect(MARGE, y, w, H_CASE, 8, apps[i].couleur);
-    spr.setTextColor(apps[i].couleur);
-    spr.drawString(apps[i].nom, spr.width() / 2, y + H_CASE / 2);
+  if (!lvglBoutonPresse()) {
+    if (visible) { lv_obj_set_hidden(barreAppui, true); visible = false; }
+    return;
   }
 
-  spr.fillRoundRect(MARGE, (int)yHighlight, w, H_CASE, 8, apps[selection].couleur);
-  spr.setTextColor(TH.fond);
-  spr.drawString(apps[selection].nom, spr.width() / 2, (int)yHighlight + H_CASE / 2);
+  uint32_t duree = millis() - lvglDebutAppui();
+
+  lv_color_t c = duree < SHORT_PRESS_INTERVAL ? lv_palette_main(LV_PALETTE_GREEN)
+               : duree < LONG_PRESS_INTERVAL  ? lv_palette_main(LV_PALETTE_ORANGE)
+               :                                lv_palette_main(LV_PALETTE_RED);
+  lv_obj_set_style_bg_color(barreAppui, c, LV_PART_INDICATOR);
+
+  if (duree > LONG_PRESS_INTERVAL) duree = LONG_PRESS_INTERVAL;
+  lv_bar_set_value(barreAppui, duree, LV_ANIM_OFF);
+
+  if (!visible) { lv_obj_set_hidden(barreAppui, false); visible = true; }
 }
 
-// ---------- Transitions ----------
+static void ouvrirApp(int8_t index);
+
+// Crée un écran avec barre de titre. Renvoie la zone de contenu à remplir.
+static lv_obj_t *creerEcran(const char *titre, lv_obj_t **ecranOut) {
+  lv_obj_t *ecran = lv_obj_create(nullptr);
+  lv_obj_set_flex_flow(ecran, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_all(ecran, 0, 0);
+  lv_obj_set_style_pad_gap(ecran, 0, 0);
+
+  // --- En-tête ---
+  lv_obj_t *entete = lv_obj_create(ecran);
+  lv_obj_set_size(entete, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_style_radius(entete, 0, 0);
+  lv_obj_set_style_border_width(entete, 0, 0);
+  lv_obj_set_style_pad_ver(entete, 6, 0);
+  lv_obj_set_scrollable(entete, false);
+
+  lv_obj_t *label = lv_label_create(entete);
+  lv_label_set_text(label, titre);
+  lv_obj_center(label);
+
+  // --- Contenu : prend toute la hauteur restante ---
+  lv_obj_t *contenu = lv_obj_create(ecran);
+  lv_obj_set_width(contenu, lv_pct(100));
+  lv_obj_set_flex_grow(contenu, 1);
+  lv_obj_set_style_radius(contenu, 0, 0);
+  lv_obj_set_style_border_width(contenu, 0, 0);
+  lv_obj_set_style_bg_opa(contenu, LV_OPA_TRANSP, 0);
+  lv_obj_set_flex_flow(contenu, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(contenu, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+  *ecranOut = ecran;
+  return contenu;
+}
+
+// ---------- Menu principal ----------
+static void clicMenuCb(lv_event_t *e) {
+  ouvrirApp((int8_t)(intptr_t)lv_event_get_user_data(e));
+}
+
+static void afficherMenu(lv_screen_load_anim_t anim) {
+  lv_group_remove_all_objs(lv_group_get_default());   // Le focus repart de zéro
+
+  lv_obj_t *ecran;
+  lv_obj_t *contenu = creerEcran("ATS-OS", &ecran);
+  lv_obj_set_style_pad_row(contenu, 8, 0);
+
+  lv_obj_t *aFocus = nullptr;
+
+  for (uint8_t i = 0; i < NB_APPS; i++) {
+    lv_obj_t *btn = lv_button_create(contenu);
+    lv_obj_set_size(btn, lv_pct(90), 60);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(apps[i].couleur), 0);
+
+    lv_obj_t *label = lv_label_create(btn);
+    lv_label_set_text_fmt(label, "%s  %s", apps[i].icone, apps[i].nom);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_20, 0);
+    lv_obj_center(label);
+
+    lv_obj_add_event_cb(btn, clicMenuCb, LV_EVENT_CLICKED, (void *)(intptr_t)i);
+    if (i == selection) aFocus = btn;
+  }
+
+  if (aFocus) lv_group_focus_obj(aFocus);    // On revient sur l'app qu'on vient de quitter
+
+  lv_screen_load_anim(ecran, anim, 200, 0, true);   // true = supprime l'ancien écran
+  appActive = -1;
+}
+
+// ---------- Ouverture / fermeture d'app ----------
 static void ouvrirApp(int8_t index) {
-  appActive   = index;
-  ecranActuel = ECRAN_APP;
-  if (apps[appActive].onEnter) apps[appActive].onEnter();
+  selection = index;
+  lv_group_remove_all_objs(lv_group_get_default());
+
+  lv_obj_t *ecran;
+  lv_obj_t *contenu = creerEcran(apps[index].nom, &ecran);
+  apps[index].onCreate(contenu);             // L'app construit ses widgets
+
+  lv_screen_load_anim(ecran, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, true);
+  appActive = index;
 }
 
 static void fermerApp() {
+  if (appActive < 0) return;
   if (apps[appActive].onExit) apps[appActive].onExit();
-  ecranActuel = ECRAN_MENU;
+  afficherMenu(LV_SCR_LOAD_ANIM_MOVE_RIGHT);
 }
 
 // ---------- API publique ----------
 void uiInit() {
-  dessinerMenu();
-  displayPush();
+  creerBarreAppui();                       // ← ajout, une seule fois au démarrage
+  afficherMenu(LV_SCR_LOAD_ANIM_NONE);
 }
 
 void uiUpdate() {
-  bool enfonce = (digitalRead(ENCODER_PUSH_BUTTON) == LOW);
-  ButtonTracker::State btn = bouton.update(enfonce);
+  majBarreAppui();                         // ← ajout
 
-  static bool etaitPresse = false;
-  if (btn.isPressed && !etaitPresse) debutAppui = millis();
-  bool vientDeRelacher = (etaitPresse && !btn.isPressed);
-  etaitPresse = btn.isPressed;
+  bool retour = lvglPopRetour();
+  bool menu   = lvglPopMenu();
 
-  int  delta       = encoderGetDelta();
-  bool aRedessiner = false;
-
-  // Appui long : retour au menu, quel que soit l'écran
-  static bool longTraite = false;
-  if (btn.isLongPressed && !longTraite) {
-    longTraite = true;
-    if (ecranActuel == ECRAN_APP) fermerApp();
-    aRedessiner = true;
-  }
-  if (!btn.isPressed) longTraite = false;
-
-  if (ecranActuel == ECRAN_MENU) {
-    if (delta != 0 && !animationEnCours()) {
-      selection = (selection + delta) % NB_APPS;
-      if (selection < 0) selection += NB_APPS;
-      aRedessiner = true;
-    }
-    if (btn.wasClicked) {
-      ouvrirApp(selection);
-      aRedessiner = true;
-    }
-  } else {
-    // Sortie d'app gérée par le framework
-    if (btn.wasShortPressed) {
-      fermerApp();
-      aRedessiner = true;
-    } else {
-      // L'app reçoit les entrées qui ne concernent pas la navigation
-      if (apps[appActive].onUpdate) {
-        apps[appActive].onUpdate(delta, btn);
-        if (delta != 0 || btn.wasClicked) aRedessiner = true;
-      }
-    }
-  }
-
-  // Redessin périodique pour les apps dynamiques
-  static uint32_t dernierRefresh = 0;
-  bool refreshPeriodique = false;
-
-  if (ecranActuel == ECRAN_APP && apps[appActive].dynamique) {
-    if (millis() - dernierRefresh >= 500) {
-      dernierRefresh = millis();
-      refreshPeriodique = true;
-    }
-  }
-
-  // Rendu
-  if (aRedessiner || animationEnCours() || btn.isPressed
-      || vientDeRelacher || refreshPeriodique) {
-
-    if (ecranActuel == ECRAN_MENU) {
-      dessinerMenu();
-    } else {
-      spr.fillSprite(TH.fond);
-      dessinerEntete(apps[appActive].nom);
-      if (apps[appActive].onDraw) apps[appActive].onDraw();
-    }
-
-    dessinerBarreAppui(btn);
-    displayPush();
-  }
+  if (appActive >= 0 && (retour || menu)) fermerApp();
 }

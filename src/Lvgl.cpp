@@ -21,17 +21,31 @@ static void flushCb(lv_display_t *disp, const lv_area_t *area, uint8_t *px) {
 
 static ButtonTracker bouton;
 
-// LVGL appelle ceci régulièrement pour lire l'encodeur
+
+static bool     evtRetour  = false;
+static bool     evtMenu    = false;
+static bool     presse     = false;
+static uint32_t debutAppui = 0;
+
 static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
   static bool relacherAuProchain = false;
+  static bool longTraite = false;
 
-  data->enc_diff = encoderGetDelta();              // Rotation
+  data->enc_diff = encoderGetDelta();
 
   bool enfonce = (digitalRead(ENCODER_PUSH_BUTTON) == LOW);
   ButtonTracker::State btn = bouton.update(enfonce);
 
-  // Clic synthétique : PRESSED sur une lecture, RELEASED sur la suivante.
-  // Les appuis moyen/long ne sont jamais transmis à LVGL.
+  // Suivi de l'appui (pour la barre de progression)
+  if (btn.isPressed && !presse) debutAppui = millis();
+  presse = btn.isPressed;
+
+  // Moyen et long : pour notre framework, jamais transmis à LVGL
+  if (btn.wasShortPressed) evtRetour = true;
+  if (btn.isLongPressed && !longTraite) { longTraite = true; evtMenu = true; }
+  if (!btn.isPressed) longTraite = false;
+
+  // Clic court : transmis à LVGL sous forme de clic synthétique
   if (relacherAuProchain) {
     data->state = LV_INDEV_STATE_RELEASED;
     relacherAuProchain = false;
@@ -42,6 +56,11 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
     data->state = LV_INDEV_STATE_RELEASED;
   }
 }
+
+bool     lvglPopRetour()    { bool e = evtRetour; evtRetour = false; return e; }
+bool     lvglPopMenu()      { bool e = evtMenu;   evtMenu   = false; return e; }
+bool     lvglBoutonPresse() { return presse; }
+uint32_t lvglDebutAppui()   { return debutAppui; }
 
 void lvglInit() {
   lv_init();
@@ -57,6 +76,13 @@ void lvglInit() {
   size_t taille = w * LIGNES_BUFFER * sizeof(uint16_t);
   void *buf = heap_caps_malloc(taille, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
   lv_display_set_buffers(disp, buf, nullptr, taille, LV_DISPLAY_RENDER_MODE_PARTIAL);
+
+  lv_theme_t *theme = lv_theme_default_init(disp,
+      lv_palette_main(LV_PALETTE_CYAN),      // Couleur principale (focus...)
+      lv_palette_main(LV_PALETTE_ORANGE),    // Couleur secondaire
+      true,                                  // Mode sombre
+      LV_FONT_DEFAULT);
+  lv_display_set_theme(disp, theme);
 
   // Encodeur déclaré comme périphérique d'entrée
   lv_indev_t *indev = lv_indev_create();

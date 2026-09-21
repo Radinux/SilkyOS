@@ -1,23 +1,17 @@
 #ifndef APP_H
 #define APP_H
 
-#include <Arduino.h>
-#include "Button.h"
+#include <lvgl.h>
 
-// Une app = un ensemble de callbacks. Le framework les appelle, l'app ne sait
-// rien de la navigation ni du rendu global.
 struct App {
   const char *nom;
-  uint16_t    couleur;
-
-  void (*onEnter)();                                      // Ouverture (peut être nullptr)
-  void (*onUpdate)(int delta, const ButtonTracker::State &btn);
-  void (*onDraw)();
-  void (*onExit)();                                       // Fermeture (sauvegarde…)
-  bool  dynamique;                                        // Redessin périodique ?
+  const char *icone;                      // Symbole LVGL (LV_SYMBOL_...)
+  uint32_t    couleur;                    // 0xRRGGBB
+  void (*onCreate)(lv_obj_t *contenu);    // Construit les widgets dans "contenu"
+  void (*onExit)();                       // Nettoyage (timers, sauvegarde), peut être nullptr
 };
 
-extern App apps[];
+extern const App     apps[];
 extern const uint8_t NB_APPS;
 
 #endif
