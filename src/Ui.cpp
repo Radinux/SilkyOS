@@ -14,7 +14,35 @@ static void (*pageExit)() = nullptr;
 
 static lv_obj_t *barreAppui = nullptr;
 
+// Défilement à l'encodeur pour les pages sans widget focusable
+static lv_obj_t     *contenuDefilable = nullptr;
+static int32_t       cibleScroll      = 0;
+static const int32_t PAS_SCROLL       = 40;     // Pixels par cran
+
 static void ouvrirApp(int8_t index, lv_screen_load_anim_t anim);
+
+// ---------- Défilement des pages "lecture seule" ----------
+// À appeler APRÈS la création des widgets d'un écran
+static void activerDefilement(lv_obj_t *contenu) {
+  cibleScroll = 0;
+  bool vide = (lv_group_get_obj_count(lv_group_get_default()) == 0);
+  contenuDefilable = vide ? contenu : nullptr;
+}
+
+static void majDefilement() {
+  int32_t d = lvglPopScroll();
+  if (d == 0 || contenuDefilable == nullptr) return;
+
+  // Défilement max = position actuelle + ce qui reste en dessous
+  int32_t max = lv_obj_get_scroll_y(contenuDefilable)
+              + lv_obj_get_scroll_bottom(contenuDefilable);
+
+  cibleScroll += d * PAS_SCROLL;
+  if (cibleScroll < 0)   cibleScroll = 0;
+  if (cibleScroll > max) cibleScroll = max;
+
+  lv_obj_scroll_to_y(contenuDefilable, cibleScroll, LV_ANIM_ON);
+}
 
 // ---------- Écran type : en-tête + zone de contenu ----------
 static lv_obj_t *creerEcran(const char *titre, lv_obj_t **ecranOut) {
@@ -119,6 +147,8 @@ static void afficherMenu(lv_screen_load_anim_t anim) {
     if (i == selection) aFocus = btn;
   }
 
+  activerDefilement(contenu);          // Après la boucle : les boutons sont dans le groupe
+
   if (aFocus) lv_group_focus_obj(aFocus);
 
   lv_screen_load_anim(ecran, anim, 200, 0, true);
@@ -135,6 +165,7 @@ static void ouvrirApp(int8_t index, lv_screen_load_anim_t anim) {
   lv_obj_t *ecran;
   lv_obj_t *contenu = creerEcran(apps[index].nom, &ecran);
   apps[index].onCreate(contenu);
+  activerDefilement(contenu);
 
   lv_screen_load_anim(ecran, anim, 200, 0, true);
 }
@@ -147,6 +178,7 @@ void uiOuvrirPage(const char *titre, void (*onCreate)(lv_obj_t *), void (*onExit
   lv_obj_t *ecran;
   lv_obj_t *contenu = creerEcran(titre, &ecran);
   onCreate(contenu);
+  activerDefilement(contenu);
 
   lv_screen_load_anim(ecran, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, true);
 }
@@ -179,6 +211,7 @@ void uiInit() {
 
 void uiUpdate() {
   majBarreAppui();
+  majDefilement();
 
   bool retour = lvglPopRetour();
   bool menu   = lvglPopMenu();

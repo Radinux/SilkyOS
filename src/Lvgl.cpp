@@ -28,6 +28,7 @@ static bool     evtRetour  = false;
 static bool     evtMenu    = false;
 static bool     presse     = false;
 static uint32_t debutAppui = 0;
+static int32_t  evtScroll  = 0;
 
 static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
   static bool relacherAuProchain = false;
@@ -35,9 +36,12 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
 
   int32_t diff = encoderGetDelta();
 
-  // En navigation (pas en édition d'un slider) : un cran à la fois,
-  // et rien du tout tant qu'une animation (scroll, transition) est en cours
-  if (diff != 0 && !lv_group_get_editing(groupe)) {
+  if (lv_group_get_obj_count(groupe) == 0) {
+    // Page sans widget focusable : la rotation sert au défilement (géré par Ui)
+    evtScroll += diff;
+    diff = 0;
+  } else if (diff != 0 && !lv_group_get_editing(groupe)) {
+    // Navigation : un cran à la fois, rien pendant une animation
     if (lv_anim_count_running() > 0) diff = 0;
     else if (diff > 1)               diff = 1;
     else if (diff < -1)              diff = -1;
@@ -113,3 +117,4 @@ bool     lvglPopRetour()    { bool e = evtRetour; evtRetour = false; return e; }
 bool     lvglPopMenu()      { bool e = evtMenu;   evtMenu   = false; return e; }
 bool     lvglBoutonPresse() { return presse; }
 uint32_t lvglDebutAppui()   { return debutAppui; }
+int32_t  lvglPopScroll()    { int32_t d = evtScroll; evtScroll = 0; return d; }
