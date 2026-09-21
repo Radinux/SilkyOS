@@ -75,3 +75,11 @@ void displaySetBrightness(uint8_t niveau) {
 void displayPush() {
   spr.pushSprite(0, 0);
 }
+
+int displayWidth()  { return tft.width();  }
+int displayHeight() { return tft.height(); }
+
+// Envoie une zone rendue par LVGL vers l'écran
+void displayFlush(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t *px) {
+  tft.pushImage(x, y, w, h, (lgfx::rgb565_t *)px);
+}

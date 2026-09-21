@@ -10,6 +10,10 @@ struct Theme {
 extern LGFX_Sprite spr;
 extern const Theme TH;
 
+int  displayWidth();
+int  displayHeight();
+void displayFlush(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t *px);
+
 void displayInit();
 void displayPush();          // Envoie le sprite à l'écran
 void displaySetBrightness(uint8_t niveau);    // ← ajout (0-255)
