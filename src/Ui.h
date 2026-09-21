@@ -1,7 +1,12 @@
 #ifndef UI_H
 #define UI_H
 
-void uiInit();      // Dessine l'écran de départ
-void uiUpdate();    // À appeler dans loop() : lit les entrées, redessine si besoin
+#include <lvgl.h>
+
+void uiInit();
+void uiUpdate();
+
+// Ouvre une sous-page depuis une app. Moyen = retour à l'app, long = menu.
+void uiOuvrirPage(const char *titre, void (*onCreate)(lv_obj_t *), void (*onExit)());
 
 #endif

@@ -1,5 +1,170 @@
+#include <Arduino.h>
 #include "../App.h"
+#include "../Ui.h"
+#include "../Lvgl.h"
+#include "../Display.h"
+#include "../Storage.h"
+#include "../Network.h"
 
+// Sous-pages (définies dans PageWifi.cpp et AppInfos.cpp)
+void wifiPageCreate(lv_obj_t *contenu);
+void wifiPageExit();
+void infosCreate(lv_obj_t *contenu);
+void infosExit();
+
+static lv_obj_t *sliderLumi, *swSens, *ddWifi, *ddRotation;
+static lv_obj_t *btnWifi, *btnSysteme, *labelReset;
+
+static int8_t dernierePage = -1;   // Sous-page d'où l'on revient (pour le focus)
+static bool   resetArme    = false;
+
+static const int LUMI_PAS = 20;    // Slider de 1 à 20 : 20 crans suffisent
+
+// ---------- Helpers de mise en page ----------
+// Ligne "Libellé ......... [widget]"
+static lv_obj_t *creerLigne(lv_obj_t *parent, const char *nom) {
+  lv_obj_t *ligne = lv_obj_create(parent);
+  lv_obj_set_size(ligne, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_style_bg_opa(ligne, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(ligne, 0, 0);
+  lv_obj_set_style_pad_all(ligne, 2, 0);
+  lv_obj_set_scrollable(ligne, false);
+  lv_obj_set_flex_flow(ligne, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(ligne, LV_FLEX_ALIGN_SPACE_BETWEEN,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_label_set_text(lv_label_create(ligne), nom);
+  return ligne;
+}
+
+static lv_obj_t *creerBoutonPage(lv_obj_t *parent, const char *nom, lv_event_cb_t cb) {
+  lv_obj_t *btn = lv_button_create(parent);
+  lv_obj_set_width(btn, lv_pct(100));
+  lv_obj_t *label = lv_label_create(btn);
+  lv_label_set_text_fmt(label, "%s  " LV_SYMBOL_RIGHT, nom);
+  lv_obj_center(label);
+  lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
+  return btn;
+}
+
+// Met les widgets en accord avec les valeurs de "reglages"
+static void rafraichirWidgets() {
+  int v = reglages.luminosite * LUMI_PAS / 255;
+  lv_slider_set_value(sliderLumi, v < 1 ? 1 : v, LV_ANIM_OFF);
+  lv_obj_set_state(swSens, LV_STATE_CHECKED, reglages.sensEncodeur);
+  lv_dropdown_set_selected(ddWifi, reglages.modeWifi);
+  lv_dropdown_set_selected(ddRotation, reglages.rotation);
+}
+
+// ---------- Callbacks ----------
+static void lumiCb(lv_event_t *e) {
+  reglages.luminosite = lv_slider_get_value(sliderLumi) * 255 / LUMI_PAS;
+  displaySetBrightness(reglages.luminosite);     // Effet immédiat, sauvé à la sortie
+}
+
+static void sensCb(lv_event_t *e) {
+  reglages.sensEncodeur = lv_obj_has_state(swSens, LV_STATE_CHECKED);
+  storageSave();
+}
+
+static void wifiCb(lv_event_t *e) {
+  reglages.modeWifi = lv_dropdown_get_selected(ddWifi);
+  storageSave();
+  netApply(reglages.modeWifi);
+}
+
+static void rotationCb(lv_event_t *e) {
+  reglages.rotation = lv_dropdown_get_selected(ddRotation);
+  storageSave();
+  lvglSetRotation(reglages.rotation);
+}
+
+static void pageWifiCb(lv_event_t *e) {
+  dernierePage = 0;
+  uiOuvrirPage("Infos WiFi", wifiPageCreate, wifiPageExit);
+}
+
+static void pageSystemeCb(lv_event_t *e) {
+  dernierePage = 1;
+  uiOuvrirPage("Systeme", infosCreate, infosExit);
+}
+
+// Double validation : 1er clic arme, 2e clic exécute, quitter le bouton désarme
+static void resetCb(lv_event_t *e) {
+  if (lv_event_get_code(e) == LV_EVENT_DEFOCUSED) {
+    resetArme = false;
+    lv_label_set_text(labelReset, "Reinitialiser");
+    return;
+  }
+
+  if (!resetArme) {
+    resetArme = true;
+    lv_label_set_text(labelReset, "Confirmer ?");
+    return;
+  }
+
+  resetArme = false;
+  storageReset();
+  displaySetBrightness(reglages.luminosite);
+  lvglSetRotation(reglages.rotation);
+  netApply(reglages.modeWifi);
+  rafraichirWidgets();
+  lv_label_set_text(labelReset, "Fait !");
+}
+
+// ---------- API de l'app ----------
 void reglagesCreate(lv_obj_t *contenu) {
-  lv_label_set_text(lv_label_create(contenu), "A venir (etape 4)");
+  resetArme = false;
+  lv_obj_set_style_pad_row(contenu, 6, 0);
+
+  // Luminosité : libellé puis slider pleine largeur
+  lv_label_set_text(lv_label_create(contenu), "Luminosite");
+  sliderLumi = lv_slider_create(contenu);
+  lv_obj_set_width(sliderLumi, lv_pct(90));
+  lv_slider_set_range(sliderLumi, 1, LUMI_PAS);
+  lv_obj_add_event_cb(sliderLumi, lumiCb, LV_EVENT_VALUE_CHANGED, nullptr);
+
+  // Sens de l'encodeur
+  lv_obj_t *ligne = creerLigne(contenu, "Enco. CCW");
+  swSens = lv_switch_create(ligne);
+  lv_obj_add_event_cb(swSens, sensCb, LV_EVENT_VALUE_CHANGED, nullptr);
+
+  // Mode WiFi
+  ligne = creerLigne(contenu, "WiFi");
+  ddWifi = lv_dropdown_create(ligne);
+  lv_dropdown_set_options(ddWifi, "OFF\nAP\nBox");
+  lv_obj_set_width(ddWifi, 80);
+  lv_obj_add_event_cb(ddWifi, wifiCb, LV_EVENT_VALUE_CHANGED, nullptr);
+
+  // Rotation
+  ligne = creerLigne(contenu, "Rotation");
+  ddRotation = lv_dropdown_create(ligne);
+  lv_dropdown_set_options(ddRotation, "0\n90\n180\n270");
+  lv_obj_set_width(ddRotation, 80);
+  lv_obj_add_event_cb(ddRotation, rotationCb, LV_EVENT_VALUE_CHANGED, nullptr);
+
+  // Sous-pages
+  btnWifi    = creerBoutonPage(contenu, "Infos WiFi", pageWifiCb);
+  btnSysteme = creerBoutonPage(contenu, "Systeme",    pageSystemeCb);
+
+  // Réinitialisation
+  lv_obj_t *btnReset = lv_button_create(contenu);
+  lv_obj_set_width(btnReset, lv_pct(100));
+  lv_obj_set_style_bg_color(btnReset, lv_palette_main(LV_PALETTE_RED), 0);
+  labelReset = lv_label_create(btnReset);
+  lv_label_set_text(labelReset, "Reinitialiser");
+  lv_obj_center(labelReset);
+  lv_obj_add_event_cb(btnReset, resetCb, LV_EVENT_CLICKED,   nullptr);
+  lv_obj_add_event_cb(btnReset, resetCb, LV_EVENT_DEFOCUSED, nullptr);
+
+  rafraichirWidgets();
+
+  // Retour d'une sous-page : focus sur le bouton qui l'avait ouverte
+  if (dernierePage == 0) lv_group_focus_obj(btnWifi);
+  if (dernierePage == 1) lv_group_focus_obj(btnSysteme);
+  dernierePage = -1;
+}
+
+void reglagesExit() {
+  dernierePage = -1;
+  storageSave();       // Sauve notamment la luminosité (pas à chaque cran)
 }

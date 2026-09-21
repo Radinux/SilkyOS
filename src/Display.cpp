@@ -23,9 +23,9 @@ public:
       cfg.pin_cs = 6;   cfg.pin_rst = 5;
       cfg.panel_width  = 170;
       cfg.panel_height = 320;
-      cfg.offset_x  = 35;
-      cfg.rgb_order = false;
-      cfg.invert    = true;
+      cfg.offset_x   = 35;
+      cfg.rgb_order  = false;
+      cfg.invert     = true;
       cfg.bus_shared = false;
       _panel.config(cfg);
     }
@@ -33,9 +33,7 @@ public:
   }
 };
 
-// ---------- Définitions des globales ----------
-static LGFX  tft;
-LGFX_Sprite  spr(&tft);
+static LGFX tft;
 
 const Theme TH = {
   .fond    = TFT_BLACK,
@@ -53,13 +51,8 @@ void displayInit() {
   digitalWrite(PIN_POWER_ON, HIGH);
 
   tft.init();
-  tft.setRotation(2);              // Portrait 170x320
+  tft.setRotation((ROTATION_BASE + reglages.rotation) % 4);
   tft.fillScreen(TH.fond);
-
-  // Buffer plein écran en PSRAM (170*320*2 = 108 ko)
-  spr.setPsram(true);
-  spr.setColorDepth(16);
-  spr.createSprite(tft.width(), tft.height());
 
   // Rétroéclairage en PWM (canal 0, 5 kHz, 8 bits)
   ledcSetup(0, 5000, 8);
@@ -72,8 +65,8 @@ void displaySetBrightness(uint8_t niveau) {
   ledcWrite(0, max((uint8_t)10, niveau));
 }
 
-void displayPush() {
-  spr.pushSprite(0, 0);
+void displaySetRotation(uint8_t rotation) {
+  tft.setRotation((ROTATION_BASE + rotation) % 4);   // Rotation matérielle (MADCTL)
 }
 
 int displayWidth()  { return tft.width();  }
