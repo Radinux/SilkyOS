@@ -9,6 +9,7 @@
 
 static const int LIGNES_BUFFER = 40;     // LVGL rend l'écran par bandes de 40 lignes
 static lv_display_t *disp = nullptr;
+static lv_group_t *groupe = nullptr;
 
 // ---------- Horloge et affichage ----------
 static uint32_t tickMillis() { return millis(); }
@@ -32,7 +33,16 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
   static bool relacherAuProchain = false;
   static bool longTraite = false;
 
-  data->enc_diff = encoderGetDelta();
+  int32_t diff = encoderGetDelta();
+
+  // En navigation (pas en édition d'un slider) : un cran à la fois,
+  // et rien du tout tant qu'une animation (scroll, transition) est en cours
+  if (diff != 0 && !lv_group_get_editing(groupe)) {
+    if (lv_anim_count_running() > 0) diff = 0;
+    else if (diff > 1)               diff = 1;
+    else if (diff < -1)              diff = -1;
+  }
+  data->enc_diff = diff;
 
   bool enfonce = (digitalRead(ENCODER_PUSH_BUTTON) == LOW);
   ButtonTracker::State btn = bouton.update(enfonce);
@@ -88,7 +98,7 @@ void lvglInit() {
   lv_indev_set_type(indev, LV_INDEV_TYPE_ENCODER);
   lv_indev_set_read_cb(indev, encoderReadCb);
 
-  lv_group_t *groupe = lv_group_create();
+  groupe = lv_group_create();          // ← plus de "lv_group_t *" devant
   lv_group_set_default(groupe);
   lv_indev_set_group(indev, groupe);
 }

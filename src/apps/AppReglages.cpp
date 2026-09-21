@@ -5,6 +5,7 @@
 #include "../Display.h"
 #include "../Storage.h"
 #include "../Network.h"
+#include "../Widgets.h"
 
 // Sous-pages (définies dans PageWifi.cpp et AppInfos.cpp)
 void wifiPageCreate(lv_obj_t *contenu);
@@ -20,36 +21,10 @@ static bool   resetArme    = false;
 
 static const int LUMI_PAS = 20;    // Slider de 1 à 20 : 20 crans suffisent
 
-// ---------- Helpers de mise en page ----------
-// Ligne "Libellé ......... [widget]"
-static lv_obj_t *creerLigne(lv_obj_t *parent, const char *nom) {
-  lv_obj_t *ligne = lv_obj_create(parent);
-  lv_obj_set_size(ligne, lv_pct(100), LV_SIZE_CONTENT);
-  lv_obj_set_style_bg_opa(ligne, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(ligne, 0, 0);
-  lv_obj_set_style_pad_all(ligne, 2, 0);
-  lv_obj_set_scrollable(ligne, false);
-  lv_obj_set_flex_flow(ligne, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(ligne, LV_FLEX_ALIGN_SPACE_BETWEEN,
-                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_label_set_text(lv_label_create(ligne), nom);
-  return ligne;
-}
-
-static lv_obj_t *creerBoutonPage(lv_obj_t *parent, const char *nom, lv_event_cb_t cb) {
-  lv_obj_t *btn = lv_button_create(parent);
-  lv_obj_set_width(btn, lv_pct(100));
-  lv_obj_t *label = lv_label_create(btn);
-  lv_label_set_text_fmt(label, "%s  " LV_SYMBOL_RIGHT, nom);
-  lv_obj_center(label);
-  lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
-  return btn;
-}
-
 // Met les widgets en accord avec les valeurs de "reglages"
 static void rafraichirWidgets() {
   int v = reglages.luminosite * LUMI_PAS / 255;
-  lv_slider_set_value(sliderLumi, v < 1 ? 1 : v, LV_ANIM_OFF);
+  sliderSetValeur(sliderLumi, v < 1 ? 1 : v);
   lv_obj_set_state(swSens, LV_STATE_CHECKED, reglages.sensEncodeur);
   lv_dropdown_set_selected(ddWifi, reglages.modeWifi);
   lv_dropdown_set_selected(ddRotation, reglages.rotation);
@@ -116,12 +91,8 @@ void reglagesCreate(lv_obj_t *contenu) {
   resetArme = false;
   lv_obj_set_style_pad_row(contenu, 6, 0);
 
-  // Luminosité : libellé puis slider pleine largeur
-  lv_label_set_text(lv_label_create(contenu), "Luminosite");
-  sliderLumi = lv_slider_create(contenu);
-  lv_obj_set_width(sliderLumi, lv_pct(90));
-  lv_slider_set_range(sliderLumi, 1, LUMI_PAS);
-  lv_obj_add_event_cb(sliderLumi, lumiCb, LV_EVENT_VALUE_CHANGED, nullptr);
+  // Luminosité : bloc "libellé + valeur + slider" en une ligne
+  sliderLumi = creerSlider(contenu, "Luminosite", 1, LUMI_PAS, lumiCb);
 
   // Sens de l'encodeur
   lv_obj_t *ligne = creerLigne(contenu, "Enco. CCW");
