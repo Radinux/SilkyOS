@@ -7,6 +7,7 @@
 #include "Ui.h"
 #include "Config.h"
 #include "Network.h"
+#include "Battery.h"
 
 static int8_t appActive = -1;        // -1 = menu principal
 static int8_t selection = 0;         // Dernière app ouverte (focus au retour)
@@ -15,7 +16,8 @@ static int8_t selection = 0;         // Dernière app ouverte (focus au retour)
 static bool  dansPage     = false;
 static void (*pageExit)() = nullptr;
 
-static lv_obj_t *barreAppui = nullptr;
+static lv_obj_t *barreAppui    = nullptr;
+static lv_obj_t *labelBatterie = nullptr;    // ← déplacée ici
 
 // Rechargement de l'écran courant, demandé depuis un callback (changement de thème...)
 static bool rechargementDemande = false;
@@ -67,7 +69,7 @@ static lv_obj_t *creerEcran(const char *titre, lv_obj_t **ecranOut) {
   lv_obj_set_size(entete, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_style_bg_opa(entete, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(entete, 0, 0);
-  lv_obj_set_style_pad_top(entete, 10, 0);
+  lv_obj_set_style_pad_top(entete, 20, 0);
   lv_obj_set_style_pad_bottom(entete, 2, 0);
   lv_obj_set_scrollable(entete, false);
 
@@ -217,6 +219,7 @@ static void afficherMenu(lv_screen_load_anim_t anim) {
 
   if (aFocus) lv_group_focus_obj(aFocus);
 
+  lv_obj_set_hidden(labelBatterie, false);     // Pas sur le boot screen, mais partout ensuite
   lv_screen_load_anim(ecran, anim, 200, 0, true);
   appActive = -1;
 }
@@ -269,6 +272,41 @@ static void fermerApp() {
   afficherMenu(animSortie());
 }
 
+// ---------- Indicateur batterie (calque supérieur) ----------
+
+static void creerIndicateurBatterie() {
+  labelBatterie = lv_label_create(lv_layer_top());
+  lv_obj_set_style_text_font(labelBatterie, &lv_font_montserrat_12, 0);
+  lv_obj_align(labelBatterie, LV_ALIGN_TOP_RIGHT, -8, 4);   // Barre d'état, tout en haut
+  lv_obj_set_hidden(labelBatterie, true);                   // Visible à partir du menu
+}
+
+// Ne redessine que quand l'affichage change
+static void majIndicateurBatterie() {
+  static int dernierAffiche = -2;              // -1 = USB
+
+  int affiche = batteryOnUsb() ? -1 : batteryPercent();
+  if (affiche == dernierAffiche) return;
+  dernierAffiche = affiche;
+
+  if (affiche < 0) {
+    // Sur USB, le niveau n'est pas lisible : juste l'éclair
+    lv_label_set_text(labelBatterie, LV_SYMBOL_CHARGE);
+    lv_obj_set_style_text_color(labelBatterie, lv_color_hex(COUL_VERT), 0);
+    return;
+  }
+
+  static const char *symboles[] = {
+    LV_SYMBOL_BATTERY_EMPTY, LV_SYMBOL_BATTERY_1, LV_SYMBOL_BATTERY_2,
+    LV_SYMBOL_BATTERY_3, LV_SYMBOL_BATTERY_FULL,
+  };
+  int niveau = affiche >= 90 ? 4 : affiche >= 65 ? 3 : affiche >= 40 ? 2 : affiche >= 15 ? 1 : 0;
+
+  lv_label_set_text_fmt(labelBatterie, "%d%% %s", affiche, symboles[niveau]);
+  lv_obj_set_style_text_color(labelBatterie,
+      lv_color_hex(niveau == 0 ? COUL_ROUGE : COUL_TEXTE_2), 0);
+}
+
 // ---------- Écran de démarrage ----------
 static void finDemarrageCb(lv_timer_t *) {
   afficherMenu(LV_SCR_LOAD_ANIM_FADE_IN);     // Supprime l'écran de boot au passage
@@ -280,7 +318,7 @@ static void afficherDemarrage() {
   lv_obj_set_flex_flow(ecran, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(ecran, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_row(ecran, 14, 0);
+  lv_obj_set_style_pad_row(ecran, paysage() ? 8 : 14, 0);   // Plus serré en paysage
 
   // Logo : "Silky" en blanc + "OS" en couleur d'accent
   lv_obj_t *logo = lv_obj_create(ecran);
@@ -307,13 +345,24 @@ static void afficherDemarrage() {
   lv_obj_set_style_text_color(version, lv_color_hex(COUL_TEXTE_2), 0);
 
   // Spinner fin, aux couleurs du thème
-  lv_obj_t *spinner = lv_spinner_create(ecran);
-  lv_obj_set_size(spinner, 30, 30);
-  lv_obj_set_style_arc_width(spinner, 3, LV_PART_MAIN);
-  lv_obj_set_style_arc_width(spinner, 3, LV_PART_INDICATOR);
-  lv_obj_set_style_arc_color(spinner, lv_color_hex(COUL_CARTE_FOCUS), LV_PART_MAIN);
-  lv_obj_set_style_arc_color(spinner, lv_color_hex(COUL_ACCENT), LV_PART_INDICATOR);
-  lv_group_remove_obj(spinner);             // Un arc est "éditable" : on l'exclut de l'encodeur
+  if (paysage()) {
+    // Paysage : peu de hauteur, une fine barre qui se remplit pendant le démarrage
+    lv_obj_t *barre = lv_bar_create(ecran);
+    lv_obj_set_size(barre, lv_pct(50), 4);
+    lv_obj_set_style_bg_color(barre, lv_color_hex(COUL_CARTE_FOCUS), 0);
+    lv_obj_set_style_bg_color(barre, lv_color_hex(COUL_ACCENT), LV_PART_INDICATOR);
+    lv_obj_set_style_anim_duration(barre, 1600, 0);   // Durée du remplissage animé
+    lv_bar_set_value(barre, 100, LV_ANIM_ON);
+  } else {
+    // Portrait : le spinner fin
+    lv_obj_t *spinner = lv_spinner_create(ecran);
+    lv_obj_set_size(spinner, 30, 30);
+    lv_obj_set_style_arc_width(spinner, 3, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(spinner, 3, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(spinner, lv_color_hex(COUL_CARTE_FOCUS), LV_PART_MAIN);
+    lv_obj_set_style_arc_color(spinner, lv_color_hex(COUL_ACCENT), LV_PART_INDICATOR);
+    lv_group_remove_obj(spinner);
+  }
 
   lv_obj_fade_in(logo, 600, 0);             // Le logo apparaît en douceur
 
@@ -428,13 +477,15 @@ static void majEcranMaj() {
 // ---------- API publique ----------
 void uiInit() {
   creerBarreAppui();
-  creerEcranMaj();         // Créé après la barre : il passe par-dessus
+  creerIndicateurBatterie();
+  creerEcranMaj();         // Créé en dernier : il passe par-dessus tout
   afficherDemarrage();     // Le menu suivra tout seul, en fondu
 }
 
 void uiUpdate() {
 
   majEcranMaj();
+  majIndicateurBatterie();
 
   // Pendant une mise à jour, on ignore la navigation
   uint8_t ota = netOtaEtat();

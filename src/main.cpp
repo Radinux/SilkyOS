@@ -5,6 +5,7 @@
 #include "Display.h"
 #include "Encoder.h"
 #include "Storage.h"
+#include "Battery.h"
 #include "Network.h"
 #include "Lvgl.h"
 #include "Ui.h"
@@ -33,13 +34,15 @@ void setup() {
   storageInit();        // Réglages NVS (avant tout le reste)
   displayInit();        // Écran + rétroéclairage
   encoderInit();        // Encodeur + bouton
+  batteryInit();        // Première mesure de la batterie
   netInit();            // Tâche réseau sur le cœur 0
   lvglInit();           // LVGL : affichage, thème, entrées
-  uiInit();             // Menu principal
+  uiInit();             // Démarrage puis menu principal
 }
 
 void loop() {
   lv_timer_handler();   // Moteur LVGL : rendu, animations, lecture encodeur
   uiUpdate();           // Retour (appui moyen) / menu (appui long)
+  batteryTick();        // Mesure batterie (1x par seconde)
   delay(5);
 }

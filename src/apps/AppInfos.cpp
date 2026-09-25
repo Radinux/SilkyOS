@@ -2,7 +2,9 @@
 #include "../App.h"
 #include "../Theme.h"
 #include "../Widgets.h"
+#include "../Battery.h"
 
+static lv_obj_t   *barreBatt, *labelBatt, *labelTension;
 static lv_obj_t   *barreRam, *barrePsram, *labelRam, *labelPsram, *labelUptime;
 static lv_timer_t *timer = nullptr;
 
@@ -10,7 +12,6 @@ static void majBarre(lv_obj_t *barre, lv_obj_t *label, uint32_t utilise, uint32_
   int pct = total ? (int)((uint64_t)utilise * 100 / total) : 0;
   lv_bar_set_value(barre, pct, LV_ANIM_ON);
 
-  // Accent du thème, puis orange et rouge quand ça se remplit
   uint32_t c = pct > 75 ? COUL_ROUGE : pct > 50 ? COUL_ATTENTION : COUL_ACCENT;
   lv_obj_set_style_bg_color(barre, lv_color_hex(c), LV_PART_INDICATOR);
 
@@ -18,7 +19,27 @@ static void majBarre(lv_obj_t *barre, lv_obj_t *label, uint32_t utilise, uint32_
                         (unsigned long)(utilise / 1024), (unsigned long)(total / 1024));
 }
 
+static void majBatterie() {
+  // LVGL n'affiche pas les float par défaut : on formate les volts à la main
+  int mv = (int)(batteryVolts() * 1000);
+  lv_label_set_text_fmt(labelTension, "%d.%02d V", mv / 1000, (mv % 1000) / 10);
+
+  if (batteryOnUsb()) {
+    lv_bar_set_value(barreBatt, 100, LV_ANIM_ON);
+    lv_obj_set_style_bg_color(barreBatt, lv_color_hex(COUL_VERT), LV_PART_INDICATOR);
+    lv_label_set_text(labelBatt, "USB");
+  } else {
+    int p = batteryPercent();
+    lv_bar_set_value(barreBatt, p, LV_ANIM_ON);
+    uint32_t c = p < 15 ? COUL_ROUGE : p < 30 ? COUL_ATTENTION : COUL_VERT;
+    lv_obj_set_style_bg_color(barreBatt, lv_color_hex(c), LV_PART_INDICATOR);
+    lv_label_set_text_fmt(labelBatt, "%d%%", p);
+  }
+}
+
 static void majInfos(lv_timer_t *) {
+  majBatterie();
+
   uint32_t ht = ESP.getHeapSize(),  hl = ESP.getFreeHeap();
   uint32_t pt = ESP.getPsramSize(), pl = ESP.getFreePsram();
 
@@ -44,6 +65,10 @@ void infosCreate(lv_obj_t *contenu) {
   lv_label_set_text_fmt(details, "%d coeurs - %lu MHz",
                         ESP.getChipCores(), (unsigned long)getCpuFrequencyMhz());
   lv_obj_set_style_text_color(details, lv_color_hex(COUL_TEXTE_2), 0);
+
+  // --- Batterie ---
+  barreBatt    = creerJauge(contenu, "Batterie", &labelBatt);
+  labelTension = creerInfo(contenu, "Tension");
 
   // --- Mémoire ---
   barreRam   = creerJauge(contenu, "RAM",   &labelRam);
