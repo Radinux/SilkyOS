@@ -23,4 +23,11 @@ lv_obj_t *creerInfo(lv_obj_t *parent, const char *titre);
 // Carte "Nom ........ valeur" + barre : renvoie la barre, et le label via labelValeur
 lv_obj_t *creerJauge(lv_obj_t *parent, const char *nom, lv_obj_t **labelValeur);
 
+// Carte "Libellé ......... [valeur]" avec liste de choix, valeur centrée
+lv_obj_t *creerDropdown(lv_obj_t *parent, const char *nom,
+                        const char *options, lv_event_cb_t cb);
+
+// Change le choix d'un dropdown créé par creerDropdown() (met aussi le texte à jour)
+void dropdownSetValeur(lv_obj_t *dd, uint32_t index);
+
 #endif

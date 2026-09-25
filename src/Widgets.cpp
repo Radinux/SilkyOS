@@ -137,3 +137,53 @@ lv_obj_t *creerJauge(lv_obj_t *parent, const char *nom, lv_obj_t **labelValeur) 
   lv_obj_set_style_bg_color(barre, lv_color_hex(COUL_ACCENT), LV_PART_INDICATOR);
   return barre;
 }
+
+// ---------- Dropdown composé ----------
+// LVGL place lui-même le texte d'un dropdown et ignore text_align.
+// On masque donc son texte et on pose notre propre label, centré.
+static void majDropdown(lv_obj_t *dd) {
+  lv_obj_t *label = (lv_obj_t *)lv_obj_get_user_data(dd);
+  char texte[32];
+  lv_dropdown_get_selected_str(dd, texte, sizeof(texte));
+  lv_label_set_text(label, texte);
+}
+
+static void dropdownValeurCb(lv_event_t *e) {
+  majDropdown((lv_obj_t *)lv_event_get_target(e));
+}
+
+lv_obj_t *creerDropdown(lv_obj_t *parent, const char *nom,
+                        const char *options, lv_event_cb_t cb) {
+  lv_obj_t *ligne = creerLigne(parent, nom);
+  lv_obj_t *dd = lv_dropdown_create(ligne);
+  lv_dropdown_set_options(dd, options);
+
+  // Style iOS : pas de flèche, pilule discrète
+  lv_dropdown_set_symbol(dd, nullptr);
+  lv_dropdown_set_text(dd, "");                 // Son texte à lui : vide
+  lv_obj_set_width(dd, 60);
+  lv_obj_set_scrollable(dd, false);
+  lv_obj_set_style_bg_color(dd, lv_color_hex(COUL_CARTE_FOCUS), 0);
+  lv_obj_set_style_border_width(dd, 0, 0);
+  lv_obj_set_style_shadow_width(dd, 0, 0);
+  lv_obj_set_style_radius(dd, 8, 0);
+  lv_obj_set_style_pad_hor(dd, 6, 0);
+  lv_obj_set_style_pad_ver(dd, 4, 0);
+
+  // Notre label, parfaitement centré, en couleur d'accent
+  lv_obj_t *valeur = lv_label_create(dd);
+  lv_obj_set_style_text_color(valeur, lv_color_hex(COUL_ACCENT), 0);
+  lv_obj_center(valeur);
+  lv_obj_set_user_data(dd, valeur);
+
+  lv_obj_add_event_cb(dd, dropdownValeurCb, LV_EVENT_VALUE_CHANGED, nullptr);
+  if (cb) lv_obj_add_event_cb(dd, cb, LV_EVENT_VALUE_CHANGED, nullptr);
+
+  majDropdown(dd);
+  return dd;
+}
+
+void dropdownSetValeur(lv_obj_t *dd, uint32_t index) {
+  lv_dropdown_set_selected(dd, index);
+  majDropdown(dd);           // Comme pour le slider : un changement par le code n'envoie pas d'événement
+}

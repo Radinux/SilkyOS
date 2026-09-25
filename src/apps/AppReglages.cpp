@@ -30,32 +30,9 @@ static void rafraichirWidgets() {
   int v = reglages.luminosite * LUMI_PAS / 255;
   sliderSetValeur(sliderLumi, v < 1 ? 1 : v);
   lv_obj_set_state(swSens, LV_STATE_CHECKED, reglages.sensEncodeur);
-  lv_dropdown_set_selected(ddWifi, reglages.modeWifi);
-  lv_dropdown_set_selected(ddRotation, reglages.rotation);
-  lv_dropdown_set_selected(ddTheme, reglages.theme);
-}
-
-// Crée une ligne "Nom ....... [dropdown]"
-static lv_obj_t *creerDropdown(lv_obj_t *parent, const char *nom,
-                               const char *options, lv_event_cb_t cb) {
-  lv_obj_t *ligne = creerLigne(parent, nom);
-  lv_obj_t *dd = lv_dropdown_create(ligne);
-  lv_dropdown_set_options(dd, options);
-
-  // Style iOS : pas de flèche, la valeur en couleur d'accent suffit à dire "cliquable"
-  lv_dropdown_set_symbol(dd, nullptr);
-  lv_obj_set_width(dd, 60);
-  lv_obj_set_style_bg_color(dd, lv_color_hex(COUL_CARTE_FOCUS), 0);
-  lv_obj_set_style_border_width(dd, 0, 0);
-  lv_obj_set_style_shadow_width(dd, 0, 0);
-  lv_obj_set_style_radius(dd, 8, 0);
-  lv_obj_set_style_pad_hor(dd, 6, 0);
-  lv_obj_set_style_pad_ver(dd, 4, 0);
-  lv_obj_set_style_text_color(dd, lv_color_hex(COUL_ACCENT), 0);
-  lv_obj_set_style_text_align(dd, LV_TEXT_ALIGN_CENTER, 0);
-
-  lv_obj_add_event_cb(dd, cb, LV_EVENT_VALUE_CHANGED, nullptr);
-  return dd;
+  dropdownSetValeur(ddWifi,     reglages.modeWifi);
+  dropdownSetValeur(ddRotation, reglages.rotation);
+  dropdownSetValeur(ddTheme,    reglages.theme);
 }
 
 // ---------- Callbacks ----------
@@ -132,15 +109,15 @@ void reglagesCreate(lv_obj_t *contenu) {
   // Sens de l'encodeur (interrupteur vert façon iOS)
   lv_obj_t *ligne = creerLigne(contenu, "Enco. CCW");
   swSens = lv_switch_create(ligne);
-  lv_obj_set_size(swSens, 40, 22);     // Plus compact
+  lv_obj_set_size(swSens, 40, 22);
   lv_obj_set_style_bg_color(swSens, lv_color_hex(COUL_VERT),
                             LV_PART_INDICATOR | LV_STATE_CHECKED);
   lv_obj_add_event_cb(swSens, sensCb, LV_EVENT_VALUE_CHANGED, nullptr);
 
-  // Listes de choix
-  ddWifi     = creerDropdown(contenu, "WiFi",     "OFF\nAP\nBox",     wifiCb);
-  ddRotation = creerDropdown(contenu, "Rotation", "0\n90\n180\n270",  rotationCb);
-  ddTheme    = creerDropdown(contenu, "Theme",    themeOptions(),     themeCb);
+  // Listes de choix (composant de Widgets.cpp)
+  ddWifi     = creerDropdown(contenu, "WiFi",     "OFF\nAP\nBox",    wifiCb);
+  ddRotation = creerDropdown(contenu, "Rotation", "0\n90\n180\n270", rotationCb);
+  ddTheme    = creerDropdown(contenu, "Theme",    themeOptions(),    themeCb);
 
   // Sous-pages
   btnWifi    = creerBoutonPage(contenu, "Infos WiFi", pageWifiCb);

@@ -91,7 +91,7 @@ static lv_obj_t *creerEcran(const char *titre, lv_obj_t **ecranOut) {
   lv_obj_set_style_pad_row(contenu, 8, 0);
 
   // Barre de défilement fine, visible seulement pendant le défilement
-  lv_obj_set_scrollbar_mode(contenu, LV_SCROLLBAR_MODE_ACTIVE);
+  lv_obj_set_scrollbar_mode(contenu, LV_SCROLLBAR_MODE_AUTO);   // Visible dès que le contenu dépasse
   lv_obj_set_style_width(contenu, 3, LV_PART_SCROLLBAR);
   lv_obj_set_style_pad_right(contenu, 3, LV_PART_SCROLLBAR);
 
