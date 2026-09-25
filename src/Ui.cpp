@@ -119,9 +119,24 @@ static void majBarreAppui() {
   if (!visible) { lv_obj_set_hidden(barreAppui, false); visible = true; }
 }
 
+// ---------- Transitions ----------
+// En paysage, les glissements font ressortir le tearing : on passe en fondu
+static bool paysage() {
+  lv_display_t *d = lv_display_get_default();
+  return lv_display_get_horizontal_resolution(d) > lv_display_get_vertical_resolution(d);
+}
+
+static lv_screen_load_anim_t animEntree() {
+  return paysage() ? LV_SCR_LOAD_ANIM_FADE_IN : LV_SCR_LOAD_ANIM_MOVE_LEFT;
+}
+
+static lv_screen_load_anim_t animSortie() {
+  return paysage() ? LV_SCR_LOAD_ANIM_FADE_IN : LV_SCR_LOAD_ANIM_MOVE_RIGHT;
+}
+
 // ---------- Menu principal ----------
 static void clicMenuCb(lv_event_t *e) {
-  ouvrirApp((int8_t)(intptr_t)lv_event_get_user_data(e), LV_SCR_LOAD_ANIM_MOVE_LEFT);
+  ouvrirApp((int8_t)(intptr_t)lv_event_get_user_data(e), animEntree());
 }
 
 static void afficherMenu(lv_screen_load_anim_t anim) {
@@ -180,7 +195,7 @@ void uiOuvrirPage(const char *titre, void (*onCreate)(lv_obj_t *), void (*onExit
   onCreate(contenu);
   activerDefilement(contenu);
 
-  lv_screen_load_anim(ecran, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, true);
+  lv_screen_load_anim(ecran, animEntree(), 200, 0, true);
 }
 
 // Nettoie la sous-page (timers...) sans changer d'écran
@@ -193,14 +208,14 @@ static void quitterPage() {
 // Moyen depuis une sous-page : on reconstruit l'app parente
 static void fermerPage() {
   quitterPage();
-  ouvrirApp(appActive, LV_SCR_LOAD_ANIM_MOVE_RIGHT);
+  ouvrirApp(appActive, animSortie());
 }
 
 static void fermerApp() {
   if (appActive < 0) return;
   if (dansPage) quitterPage();
   if (apps[appActive].onExit) apps[appActive].onExit();
-  afficherMenu(LV_SCR_LOAD_ANIM_MOVE_RIGHT);
+  afficherMenu(animSortie());
 }
 
 // ---------- API publique ----------
