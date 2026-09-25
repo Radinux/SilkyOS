@@ -374,7 +374,7 @@ static void afficherDemarrage() {
 }
 
 // ---------- Écran de mise à jour (calque supérieur) ----------
-static lv_obj_t *voileMaj, *arcMaj, *labelPctMaj, *labelEtatMaj;
+static lv_obj_t *voileMaj, *arcMaj, *labelPctMaj, *barreMaj, *labelPctBarre, *labelEtatMaj;
 
 static void creerEcranMaj() {
   voileMaj = lv_obj_create(lv_layer_top());
@@ -386,18 +386,17 @@ static void creerEcranMaj() {
   lv_obj_set_flex_flow(voileMaj, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(voileMaj, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_row(voileMaj, 14, 0);
 
   lv_obj_t *titre = lv_label_create(voileMaj);
   lv_label_set_text(titre, "Mise a jour");
   lv_obj_set_style_text_font(titre, &lv_font_montserrat_20, 0);
   lv_obj_set_style_text_color(titre, lv_color_white(), 0);
 
-  // Anneau de progression façon montre, sans poignée
+  // --- Variante portrait : anneau façon montre, pourcentage au centre ---
   arcMaj = lv_arc_create(voileMaj);
   lv_obj_set_size(arcMaj, 110, 110);
-  lv_arc_set_rotation(arcMaj, 270);          // Démarre en haut
-  lv_arc_set_bg_angles(arcMaj, 0, 360);      // Cercle complet
+  lv_arc_set_rotation(arcMaj, 270);
+  lv_arc_set_bg_angles(arcMaj, 0, 360);
   lv_arc_set_range(arcMaj, 0, 100);
   lv_obj_remove_style(arcMaj, nullptr, LV_PART_KNOB);
   lv_obj_set_style_arc_width(arcMaj, 10, LV_PART_MAIN);
@@ -409,11 +408,21 @@ static void creerEcranMaj() {
   lv_obj_set_style_text_color(labelPctMaj, lv_color_white(), 0);
   lv_obj_center(labelPctMaj);
 
+  // --- Variante paysage : fine barre + pourcentage en dessous ---
+  barreMaj = lv_bar_create(voileMaj);
+  lv_obj_set_size(barreMaj, lv_pct(60), 6);
+  lv_bar_set_range(barreMaj, 0, 100);
+
+  labelPctBarre = lv_label_create(voileMaj);
+  lv_obj_set_style_text_font(labelPctBarre, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(labelPctBarre, lv_color_white(), 0);
+
   labelEtatMaj = lv_label_create(voileMaj);
 
   lv_obj_set_hidden(voileMaj, true);
 }
 
+// Appelée à chaque tour : lit l'état écrit par la tâche réseau, et SEULE l'UI touche LVGL
 // Appelée à chaque tour : lit l'état écrit par la tâche réseau, et SEULE l'UI touche LVGL
 static void majEcranMaj() {
   static bool     visible     = false;
@@ -430,19 +439,30 @@ static void majEcranMaj() {
   }
 
   if (!visible) {
-    // Couleurs du thème actif au moment où l'écran apparaît
+    // Variante choisie selon l'orientation au moment où l'écran apparaît
+    bool pay = paysage();
+    lv_obj_set_hidden(arcMaj,        pay);
+    lv_obj_set_hidden(barreMaj,      !pay);
+    lv_obj_set_hidden(labelPctBarre, !pay);
+    lv_obj_set_style_pad_row(voileMaj, pay ? 8 : 14, 0);
+
+    // Couleurs du thème actif
     lv_obj_set_style_bg_color(voileMaj, lv_color_hex(COUL_FOND), 0);
     lv_obj_set_style_arc_color(arcMaj, lv_color_hex(COUL_CARTE_FOCUS), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(barreMaj, lv_color_hex(COUL_CARTE_FOCUS), 0);
+
     lv_obj_set_hidden(voileMaj, false);
     visible = true;
     dernierPct = 255;
   }
 
-  // On ne redessine que ce qui change
+  // On ne redessine que ce qui change (les deux variantes, c'est plus simple)
   uint8_t p = netOtaPourcent();
   if (p != dernierPct) {
     lv_arc_set_value(arcMaj, p);
-    lv_label_set_text_fmt(labelPctMaj, "%d%%", p);
+    lv_bar_set_value(barreMaj, p, LV_ANIM_ON);
+    lv_label_set_text_fmt(labelPctMaj,   "%d%%", p);
+    lv_label_set_text_fmt(labelPctBarre, "%d%%", p);
     dernierPct = p;
   }
 
@@ -456,7 +476,7 @@ static void majEcranMaj() {
         lv_obj_set_style_text_color(labelEtatMaj, lv_color_hex(COUL_TEXTE_2), 0);
         break;
       case OTA_REUSSI:
-        lv_label_set_text(labelEtatMaj, "Redemarrage...");   // ElegantOTA redémarre tout seul
+        lv_label_set_text(labelEtatMaj, "Redemarrage...");
         c = COUL_VERT;
         lv_obj_set_style_text_color(labelEtatMaj, lv_color_hex(c), 0);
         break;
@@ -468,6 +488,7 @@ static void majEcranMaj() {
         break;
     }
     lv_obj_set_style_arc_color(arcMaj, lv_color_hex(c), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(barreMaj, lv_color_hex(c), LV_PART_INDICATOR);
   }
 
   // Après un échec, on laisse le message 3 s puis on rend la main
