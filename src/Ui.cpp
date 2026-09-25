@@ -5,6 +5,8 @@
 #include "Lvgl.h"
 #include "Theme.h"
 #include "Ui.h"
+#include "Config.h"
+#include "Network.h"
 
 static int8_t appActive = -1;        // -1 = menu principal
 static int8_t selection = 0;         // Dernière app ouverte (focus au retour)
@@ -267,13 +269,176 @@ static void fermerApp() {
   afficherMenu(animSortie());
 }
 
+// ---------- Écran de démarrage ----------
+static void finDemarrageCb(lv_timer_t *) {
+  afficherMenu(LV_SCR_LOAD_ANIM_FADE_IN);     // Supprime l'écran de boot au passage
+}
+
+static void afficherDemarrage() {
+  lv_obj_t *ecran = lv_obj_create(nullptr);
+  lv_obj_set_style_bg_color(ecran, lv_color_hex(COUL_FOND), 0);
+  lv_obj_set_flex_flow(ecran, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(ecran, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_row(ecran, 14, 0);
+
+  // Logo : "Silky" en blanc + "OS" en couleur d'accent
+  lv_obj_t *logo = lv_obj_create(ecran);
+  lv_obj_set_size(logo, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_style_bg_opa(logo, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(logo, 0, 0);
+  lv_obj_set_style_pad_all(logo, 0, 0);
+  lv_obj_set_scrollable(logo, false);
+  lv_obj_set_flex_flow(logo, LV_FLEX_FLOW_ROW);
+
+  lv_obj_t *silky = lv_label_create(logo);
+  lv_label_set_text(silky, "Silky");
+  lv_obj_set_style_text_font(silky, &lv_font_montserrat_28, 0);
+  lv_obj_set_style_text_color(silky, lv_color_hex(COUL_TEXTE), 0);
+
+  lv_obj_t *os = lv_label_create(logo);
+  lv_label_set_text(os, "OS");
+  lv_obj_set_style_text_font(os, &lv_font_montserrat_28, 0);
+  lv_obj_set_style_text_color(os, lv_color_hex(COUL_ACCENT), 0);
+
+  // Version, discrète
+  lv_obj_t *version = lv_label_create(ecran);
+  lv_label_set_text(version, "v" SILKY_VERSION);
+  lv_obj_set_style_text_color(version, lv_color_hex(COUL_TEXTE_2), 0);
+
+  // Spinner fin, aux couleurs du thème
+  lv_obj_t *spinner = lv_spinner_create(ecran);
+  lv_obj_set_size(spinner, 30, 30);
+  lv_obj_set_style_arc_width(spinner, 3, LV_PART_MAIN);
+  lv_obj_set_style_arc_width(spinner, 3, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_color(spinner, lv_color_hex(COUL_CARTE_FOCUS), LV_PART_MAIN);
+  lv_obj_set_style_arc_color(spinner, lv_color_hex(COUL_ACCENT), LV_PART_INDICATOR);
+  lv_group_remove_obj(spinner);             // Un arc est "éditable" : on l'exclut de l'encodeur
+
+  lv_obj_fade_in(logo, 600, 0);             // Le logo apparaît en douceur
+
+  lv_screen_load_anim(ecran, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+
+  // Timer "one-shot" : se déclenche une fois, puis se supprime tout seul
+  lv_timer_t *t = lv_timer_create(finDemarrageCb, 1800, nullptr);
+  lv_timer_set_repeat_count(t, 1);
+}
+
+// ---------- Écran de mise à jour (calque supérieur) ----------
+static lv_obj_t *voileMaj, *arcMaj, *labelPctMaj, *labelEtatMaj;
+
+static void creerEcranMaj() {
+  voileMaj = lv_obj_create(lv_layer_top());
+  lv_obj_set_size(voileMaj, lv_pct(100), lv_pct(100));
+  lv_obj_set_style_bg_opa(voileMaj, LV_OPA_COVER, 0);
+  lv_obj_set_style_border_width(voileMaj, 0, 0);
+  lv_obj_set_style_radius(voileMaj, 0, 0);
+  lv_obj_set_scrollable(voileMaj, false);
+  lv_obj_set_flex_flow(voileMaj, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(voileMaj, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_row(voileMaj, 14, 0);
+
+  lv_obj_t *titre = lv_label_create(voileMaj);
+  lv_label_set_text(titre, "Mise a jour");
+  lv_obj_set_style_text_font(titre, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(titre, lv_color_white(), 0);
+
+  // Anneau de progression façon montre, sans poignée
+  arcMaj = lv_arc_create(voileMaj);
+  lv_obj_set_size(arcMaj, 110, 110);
+  lv_arc_set_rotation(arcMaj, 270);          // Démarre en haut
+  lv_arc_set_bg_angles(arcMaj, 0, 360);      // Cercle complet
+  lv_arc_set_range(arcMaj, 0, 100);
+  lv_obj_remove_style(arcMaj, nullptr, LV_PART_KNOB);
+  lv_obj_set_style_arc_width(arcMaj, 10, LV_PART_MAIN);
+  lv_obj_set_style_arc_width(arcMaj, 10, LV_PART_INDICATOR);
+  lv_group_remove_obj(arcMaj);
+
+  labelPctMaj = lv_label_create(arcMaj);
+  lv_obj_set_style_text_font(labelPctMaj, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(labelPctMaj, lv_color_white(), 0);
+  lv_obj_center(labelPctMaj);
+
+  labelEtatMaj = lv_label_create(voileMaj);
+
+  lv_obj_set_hidden(voileMaj, true);
+}
+
+// Appelée à chaque tour : lit l'état écrit par la tâche réseau, et SEULE l'UI touche LVGL
+static void majEcranMaj() {
+  static bool     visible     = false;
+  static uint8_t  dernierEtat = OTA_AUCUN;
+  static uint8_t  dernierPct  = 255;
+  static uint32_t debutEchec  = 0;
+
+  uint8_t etat = netOtaEtat();
+
+  if (etat == OTA_AUCUN) {
+    if (visible) { lv_obj_set_hidden(voileMaj, true); visible = false; }
+    dernierEtat = OTA_AUCUN;
+    return;
+  }
+
+  if (!visible) {
+    // Couleurs du thème actif au moment où l'écran apparaît
+    lv_obj_set_style_bg_color(voileMaj, lv_color_hex(COUL_FOND), 0);
+    lv_obj_set_style_arc_color(arcMaj, lv_color_hex(COUL_CARTE_FOCUS), LV_PART_MAIN);
+    lv_obj_set_hidden(voileMaj, false);
+    visible = true;
+    dernierPct = 255;
+  }
+
+  // On ne redessine que ce qui change
+  uint8_t p = netOtaPourcent();
+  if (p != dernierPct) {
+    lv_arc_set_value(arcMaj, p);
+    lv_label_set_text_fmt(labelPctMaj, "%d%%", p);
+    dernierPct = p;
+  }
+
+  if (etat != dernierEtat) {
+    dernierEtat = etat;
+    uint32_t c;
+    switch (etat) {
+      case OTA_EN_COURS:
+        lv_label_set_text(labelEtatMaj, "Ne pas eteindre");
+        c = COUL_ACCENT;
+        lv_obj_set_style_text_color(labelEtatMaj, lv_color_hex(COUL_TEXTE_2), 0);
+        break;
+      case OTA_REUSSI:
+        lv_label_set_text(labelEtatMaj, "Redemarrage...");   // ElegantOTA redémarre tout seul
+        c = COUL_VERT;
+        lv_obj_set_style_text_color(labelEtatMaj, lv_color_hex(c), 0);
+        break;
+      default:
+        lv_label_set_text(labelEtatMaj, "Echec");
+        c = COUL_ROUGE;
+        lv_obj_set_style_text_color(labelEtatMaj, lv_color_hex(c), 0);
+        debutEchec = millis();
+        break;
+    }
+    lv_obj_set_style_arc_color(arcMaj, lv_color_hex(c), LV_PART_INDICATOR);
+  }
+
+  // Après un échec, on laisse le message 3 s puis on rend la main
+  if (etat == OTA_ECHEC && millis() - debutEchec > 3000) netOtaAcquitter();
+}
+
 // ---------- API publique ----------
 void uiInit() {
   creerBarreAppui();
-  afficherMenu(LV_SCR_LOAD_ANIM_NONE);
+  creerEcranMaj();         // Créé après la barre : il passe par-dessus
+  afficherDemarrage();     // Le menu suivra tout seul, en fondu
 }
 
 void uiUpdate() {
+
+  majEcranMaj();
+
+  // Pendant une mise à jour, on ignore la navigation
+  uint8_t ota = netOtaEtat();
+  if (ota == OTA_EN_COURS || ota == OTA_REUSSI) return;
   majBarreAppui();
   majDefilement();
 

@@ -10,6 +10,10 @@ enum Etat : uint8_t { ETAT_OFF, ETAT_CONNEXION, ETAT_CONNECTE, ETAT_ECHEC, ETAT_
 // Écrit par la tâche réseau, lu par l'interface
 static volatile uint8_t etat = ETAT_OFF;
 
+// État de l'OTA : écrit par la tâche réseau, lu par l'interface
+static volatile uint8_t otaEtat     = OTA_AUCUN;
+static volatile uint8_t otaPourcent = 0;
+
 // Utilisés UNIQUEMENT par la tâche réseau
 static WiFiManager wm;
 static WebServer   serveur(80);
@@ -25,6 +29,34 @@ static QueueHandle_t fileModes = nullptr;
 static void arreterServices() {
   if (portailActif) { wm.stopConfigPortal(); portailActif = false; }
   if (serveurActif) { serveur.stop();        serveurActif = false; }
+}
+
+// Prépare ElegantOTA une seule fois, avec ses callbacks
+static void preparerOta() {
+  if (otaPret) return;
+
+  ElegantOTA.begin(&serveur);
+
+  // Ces callbacks tournent dans la tâche réseau : ils ne touchent PAS à LVGL,
+  // ils se contentent de noter l'état pour que l'UI l'affiche.
+  ElegantOTA.onStart([]() {
+    otaPourcent = 0;
+    otaEtat = OTA_EN_COURS;
+  });
+
+  ElegantOTA.onProgress([](size_t recu, size_t) {
+    // Taille du nouveau firmware inconnue : on l'estime avec celle de l'actuel
+    uint32_t estime = ESP.getSketchSize();
+    uint32_t p = estime ? (uint64_t)recu * 100 / estime : 0;
+    otaPourcent = p > 99 ? 99 : p;
+  });
+
+  ElegantOTA.onEnd([](bool succes) {
+    otaPourcent = 100;
+    otaEtat = succes ? OTA_REUSSI : OTA_ECHEC;
+  });
+
+  otaPret = true;
 }
 
 static void appliquerMode(uint8_t mode) {
@@ -43,10 +75,10 @@ static void appliquerMode(uint8_t mode) {
     case ATS_WIFI_AP:
       WiFi.mode(WIFI_AP_STA);
       wm.setConfigPortalBlocking(false);
-      wm.startConfigPortal("ATS-OS-Setup");
+      wm.startConfigPortal("SilkyOS-Setup");
       portailActif = true;
       etat = ETAT_PORTAIL;
-      Serial.println("[WiFi] Portail : connecte-toi a ATS-OS-Setup");
+      Serial.println("[WiFi] Portail : connecte-toi a SilkyOS-Setup");
       break;
 
     case ATS_WIFI_STA:
@@ -56,7 +88,7 @@ static void appliquerMode(uint8_t mode) {
       wm.setConnectTimeout(10);                // Abandon après 10 s
 
       if (wm.autoConnect()) {                  // Bloquant... mais seulement pour CETTE tâche
-        if (!otaPret) { ElegantOTA.begin(&serveur); otaPret = true; }
+        preparerOta();
         serveur.begin();
         serveurActif = true;
         etat = ETAT_CONNECTE;
@@ -89,7 +121,7 @@ void netInit() {
 
   BaseType_t ok = xTaskCreatePinnedToCore(
       tacheReseau, "reseau",
-      16384,          // Pile : WiFiManager est très gourmand,
+      10240,          // Pile : WiFiManager est gourmand
       nullptr,
       1,              // Priorité
       nullptr,
@@ -116,7 +148,7 @@ String netGetIP() {
 }
 
 String netGetSSID() {
-  if (etat == ETAT_PORTAIL) return "ATS-OS-Setup";
+  if (etat == ETAT_PORTAIL) return "SilkyOS-Setup";
   if (netIsConnected())     return WiFi.SSID();
   return "-";
 }
@@ -130,3 +162,8 @@ const char *netGetStatusText() {
     default:             return "Desactive";
   }
 }
+
+// ---------- État de l'OTA ----------
+uint8_t netOtaEtat()      { return otaEtat; }
+uint8_t netOtaPourcent()  { return otaPourcent; }
+void    netOtaAcquitter() { otaEtat = OTA_AUCUN; }

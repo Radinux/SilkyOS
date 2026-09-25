@@ -12,4 +12,10 @@ String      netGetIP();
 String      netGetSSID();
 const char *netGetStatusText();
 
+enum EtatOta { OTA_AUCUN = 0, OTA_EN_COURS, OTA_REUSSI, OTA_ECHEC };
+
+uint8_t netOtaEtat();         // Où en est la mise à jour
+uint8_t netOtaPourcent();     // Progression estimée (0-100)
+void    netOtaAcquitter();    // L'UI a affiché l'échec : on revient à OTA_AUCUN
+
 #endif
