@@ -16,7 +16,7 @@ void setup() {
   storageInit();        // Réglages NVS (avant tout le reste)
   displayInit();        // Écran + rétroéclairage
   encoderInit();        // Encodeur + bouton
-  netInit();            // WiFi selon le mode sauvegardé
+  netInit();            // Tâche réseau sur le cœur 0 (ne bloque plus le boot)
   lvglInit();           // LVGL : affichage, thème, entrées
   uiInit();             // Menu principal
 }
@@ -24,6 +24,5 @@ void setup() {
 void loop() {
   lv_timer_handler();   // Moteur LVGL : rendu, animations, lecture encodeur
   uiUpdate();           // Retour (appui moyen) / menu (appui long)
-  netTick();            // Portail WiFi + OTA
   delay(5);
 }
