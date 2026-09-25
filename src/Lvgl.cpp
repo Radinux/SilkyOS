@@ -6,6 +6,7 @@
 #include "Encoder.h"
 #include "Button.h"
 #include "Lvgl.h"
+#include "Theme.h"
 
 static const int LIGNES_BUFFER = 40;     // LVGL rend l'écran par bandes de 40 lignes
 static lv_display_t *disp = nullptr;
@@ -89,13 +90,7 @@ void lvglInit() {
   void *buf = heap_caps_malloc(taille, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
   lv_display_set_buffers(disp, buf, nullptr, taille, LV_DISPLAY_RENDER_MODE_PARTIAL);
 
-  // Thème sombre
-  lv_theme_t *theme = lv_theme_default_init(disp,
-      lv_palette_main(LV_PALETTE_CYAN),
-      lv_palette_main(LV_PALETTE_ORANGE),
-      true,
-      LV_FONT_DEFAULT);
-  lv_display_set_theme(disp, theme);
+  themeInit();          // Palette sauvegardée + styles maison
 
   // Encodeur comme périphérique d'entrée, rattaché au groupe par défaut
   lv_indev_t *indev = lv_indev_create();

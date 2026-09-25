@@ -6,6 +6,7 @@
 #include "../Storage.h"
 #include "../Network.h"
 #include "../Widgets.h"
+#include "../Theme.h"
 
 // Sous-pages (définies dans PageWifi.cpp et AppInfos.cpp)
 void wifiPageCreate(lv_obj_t *contenu);
@@ -13,11 +14,14 @@ void wifiPageExit();
 void infosCreate(lv_obj_t *contenu);
 void infosExit();
 
-static lv_obj_t *sliderLumi, *swSens, *ddWifi, *ddRotation;
+static lv_obj_t *sliderLumi, *swSens, *ddWifi, *ddRotation, *ddTheme;
 static lv_obj_t *btnWifi, *btnSysteme, *labelReset;
 
-static int8_t dernierePage = -1;   // Sous-page d'où l'on revient (pour le focus)
-static bool   resetArme    = false;
+// Élément à refocaliser quand l'écran est reconstruit
+enum { FOCUS_AUCUN = -1, FOCUS_WIFI, FOCUS_SYSTEME, FOCUS_THEME };
+static int8_t focusRetour = FOCUS_AUCUN;
+
+static bool resetArme = false;
 
 static const int LUMI_PAS = 20;    // Slider de 1 à 20 : 20 crans suffisent
 
@@ -28,6 +32,30 @@ static void rafraichirWidgets() {
   lv_obj_set_state(swSens, LV_STATE_CHECKED, reglages.sensEncodeur);
   lv_dropdown_set_selected(ddWifi, reglages.modeWifi);
   lv_dropdown_set_selected(ddRotation, reglages.rotation);
+  lv_dropdown_set_selected(ddTheme, reglages.theme);
+}
+
+// Crée une ligne "Nom ....... [dropdown]"
+static lv_obj_t *creerDropdown(lv_obj_t *parent, const char *nom,
+                               const char *options, lv_event_cb_t cb) {
+  lv_obj_t *ligne = creerLigne(parent, nom);
+  lv_obj_t *dd = lv_dropdown_create(ligne);
+  lv_dropdown_set_options(dd, options);
+
+  // Style iOS : pas de flèche, la valeur en couleur d'accent suffit à dire "cliquable"
+  lv_dropdown_set_symbol(dd, nullptr);
+  lv_obj_set_width(dd, 60);
+  lv_obj_set_style_bg_color(dd, lv_color_hex(COUL_CARTE_FOCUS), 0);
+  lv_obj_set_style_border_width(dd, 0, 0);
+  lv_obj_set_style_shadow_width(dd, 0, 0);
+  lv_obj_set_style_radius(dd, 8, 0);
+  lv_obj_set_style_pad_hor(dd, 6, 0);
+  lv_obj_set_style_pad_ver(dd, 4, 0);
+  lv_obj_set_style_text_color(dd, lv_color_hex(COUL_ACCENT), 0);
+  lv_obj_set_style_text_align(dd, LV_TEXT_ALIGN_CENTER, 0);
+
+  lv_obj_add_event_cb(dd, cb, LV_EVENT_VALUE_CHANGED, nullptr);
+  return dd;
 }
 
 // ---------- Callbacks ----------
@@ -53,13 +81,21 @@ static void rotationCb(lv_event_t *e) {
   lvglSetRotation(reglages.rotation);
 }
 
+static void themeCb(lv_event_t *e) {
+  reglages.theme = lv_dropdown_get_selected(ddTheme);
+  storageSave();
+  themeAppliquer(reglages.theme);
+  focusRetour = FOCUS_THEME;       // On revient sur ce réglage après reconstruction
+  uiRecharger();                   // L'écran sera recréé avec les nouvelles couleurs
+}
+
 static void pageWifiCb(lv_event_t *e) {
-  dernierePage = 0;
+  focusRetour = FOCUS_WIFI;
   uiOuvrirPage("Infos WiFi", wifiPageCreate, wifiPageExit);
 }
 
 static void pageSystemeCb(lv_event_t *e) {
-  dernierePage = 1;
+  focusRetour = FOCUS_SYSTEME;
   uiOuvrirPage("Systeme", infosCreate, infosExit);
 }
 
@@ -82,60 +118,55 @@ static void resetCb(lv_event_t *e) {
   displaySetBrightness(reglages.luminosite);
   lvglSetRotation(reglages.rotation);
   netApply(reglages.modeWifi);
-  rafraichirWidgets();
-  lv_label_set_text(labelReset, "Fait !");
+  themeAppliquer(reglages.theme);
+  uiRecharger();                   // Reconstruit l'écran avec les valeurs d'usine
 }
 
 // ---------- API de l'app ----------
 void reglagesCreate(lv_obj_t *contenu) {
   resetArme = false;
-  lv_obj_set_style_pad_row(contenu, 6, 0);
 
-  // Luminosité : bloc "libellé + valeur + slider" en une ligne
+  // Luminosité
   sliderLumi = creerSlider(contenu, "Luminosite", 1, LUMI_PAS, lumiCb);
 
-  // Sens de l'encodeur
+  // Sens de l'encodeur (interrupteur vert façon iOS)
   lv_obj_t *ligne = creerLigne(contenu, "Enco. CCW");
   swSens = lv_switch_create(ligne);
+  lv_obj_set_size(swSens, 40, 22);     // Plus compact
+  lv_obj_set_style_bg_color(swSens, lv_color_hex(COUL_VERT),
+                            LV_PART_INDICATOR | LV_STATE_CHECKED);
   lv_obj_add_event_cb(swSens, sensCb, LV_EVENT_VALUE_CHANGED, nullptr);
 
-  // Mode WiFi
-  ligne = creerLigne(contenu, "WiFi");
-  ddWifi = lv_dropdown_create(ligne);
-  lv_dropdown_set_options(ddWifi, "OFF\nAP\nBox");
-  lv_obj_set_width(ddWifi, 80);
-  lv_obj_add_event_cb(ddWifi, wifiCb, LV_EVENT_VALUE_CHANGED, nullptr);
-
-  // Rotation
-  ligne = creerLigne(contenu, "Rotation");
-  ddRotation = lv_dropdown_create(ligne);
-  lv_dropdown_set_options(ddRotation, "0\n90\n180\n270");
-  lv_obj_set_width(ddRotation, 80);
-  lv_obj_add_event_cb(ddRotation, rotationCb, LV_EVENT_VALUE_CHANGED, nullptr);
+  // Listes de choix
+  ddWifi     = creerDropdown(contenu, "WiFi",     "OFF\nAP\nBox",     wifiCb);
+  ddRotation = creerDropdown(contenu, "Rotation", "0\n90\n180\n270",  rotationCb);
+  ddTheme    = creerDropdown(contenu, "Theme",    themeOptions(),     themeCb);
 
   // Sous-pages
   btnWifi    = creerBoutonPage(contenu, "Infos WiFi", pageWifiCb);
   btnSysteme = creerBoutonPage(contenu, "Systeme",    pageSystemeCb);
 
-  // Réinitialisation
+  // Réinitialisation : carte normale, texte rouge (action destructrice façon iOS)
   lv_obj_t *btnReset = lv_button_create(contenu);
-  lv_obj_set_width(btnReset, lv_pct(100));
-  lv_obj_set_style_bg_color(btnReset, lv_palette_main(LV_PALETTE_RED), 0);
+  lv_obj_set_size(btnReset, lv_pct(100), LV_SIZE_CONTENT);
+  themeCarte(btnReset);
   labelReset = lv_label_create(btnReset);
   lv_label_set_text(labelReset, "Reinitialiser");
+  lv_obj_set_style_text_color(labelReset, lv_color_hex(COUL_ROUGE), 0);
   lv_obj_center(labelReset);
   lv_obj_add_event_cb(btnReset, resetCb, LV_EVENT_CLICKED,   nullptr);
   lv_obj_add_event_cb(btnReset, resetCb, LV_EVENT_DEFOCUSED, nullptr);
 
   rafraichirWidgets();
 
-  // Retour d'une sous-page : focus sur le bouton qui l'avait ouverte
-  if (dernierePage == 0) lv_group_focus_obj(btnWifi);
-  if (dernierePage == 1) lv_group_focus_obj(btnSysteme);
-  dernierePage = -1;
+  // Écran reconstruit (retour de sous-page, changement de thème) : on remet le focus
+  if (focusRetour == FOCUS_WIFI)    lv_group_focus_obj(btnWifi);
+  if (focusRetour == FOCUS_SYSTEME) lv_group_focus_obj(btnSysteme);
+  if (focusRetour == FOCUS_THEME)   lv_group_focus_obj(ddTheme);
+  focusRetour = FOCUS_AUCUN;
 }
 
 void reglagesExit() {
-  dernierePage = -1;
+  focusRetour = FOCUS_AUCUN;
   storageSave();       // Sauve notamment la luminosité (pas à chaque cran)
 }

@@ -27,7 +27,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial && millis() < 3000) delay(10);   // Laisse le moniteur se reconnecter
 
-  Serial.println("=== ATS-OS boot (LVGL) ===");
+  Serial.println("=== SilkyOS boot ===");
   Serial.printf("Dernier reset : %s\n", raisonReset());
 
   storageInit();        // Réglages NVS (avant tout le reste)

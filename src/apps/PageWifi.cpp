@@ -2,24 +2,20 @@
 #include <WiFi.h>
 #include "../App.h"
 #include "../Network.h"
+#include "../Theme.h"
+#include "../Widgets.h"
 
-static lv_obj_t   *labelStatut, *labelSsid, *labelIp, *labelRssi, *barreSignal;
+static lv_obj_t   *icone, *labelStatut, *labelSsid, *labelIp, *barreSignal, *labelRssi;
 static lv_timer_t *timerWifi = nullptr;
-
-// Petit titre gris + label de valeur en dessous
-static lv_obj_t *creerChamp(lv_obj_t *parent, const char *titre) {
-  lv_obj_t *t = lv_label_create(parent);
-  lv_label_set_text(t, titre);
-  lv_obj_set_style_text_color(t, lv_palette_main(LV_PALETTE_GREY), 0);
-  return lv_label_create(parent);
-}
 
 static void majWifi(lv_timer_t *) {
   bool ok = netIsConnected();
+  lv_color_t c = lv_color_hex(ok ? COUL_VERT : COUL_ATTENTION);
 
+  // Carte héros : icône + statut colorés
+  lv_obj_set_style_text_color(icone, c, 0);
+  lv_obj_set_style_text_color(labelStatut, c, 0);
   lv_label_set_text(labelStatut, netGetStatusText());
-  lv_obj_set_style_text_color(labelStatut,
-      ok ? lv_palette_main(LV_PALETTE_GREEN) : lv_palette_main(LV_PALETTE_ORANGE), 0);
 
   lv_label_set_text(labelSsid, netGetSSID().c_str());
   lv_label_set_text(labelIp,   netGetIP().c_str());
@@ -28,25 +24,29 @@ static void majWifi(lv_timer_t *) {
     int rssi = WiFi.RSSI();
     lv_bar_set_value(barreSignal, constrain(rssi, -90, -40), LV_ANIM_ON);
     lv_label_set_text_fmt(labelRssi, "%d dBm", rssi);
-    lv_obj_set_hidden(barreSignal, false);
   } else {
+    lv_bar_set_value(barreSignal, -90, LV_ANIM_ON);
     lv_label_set_text(labelRssi, "-");
-    lv_obj_set_hidden(barreSignal, true);
   }
 }
 
 void wifiPageCreate(lv_obj_t *contenu) {
-  lv_obj_set_style_pad_row(contenu, 4, 0);
+  // --- Carte héros ---
+  lv_obj_t *heros = creerCarte(contenu);
+  lv_obj_set_flex_align(heros, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-  labelStatut = lv_label_create(contenu);
+  icone = lv_label_create(heros);
+  lv_label_set_text(icone, LV_SYMBOL_WIFI);
+  lv_obj_set_style_text_font(icone, &lv_font_montserrat_28, 0);
+
+  labelStatut = lv_label_create(heros);
   lv_obj_set_style_text_font(labelStatut, &lv_font_montserrat_20, 0);
 
-  labelSsid = creerChamp(contenu, "Reseau");
-  labelIp   = creerChamp(contenu, "Adresse IP");
-  labelRssi = creerChamp(contenu, "Signal");
-
-  barreSignal = lv_bar_create(contenu);
-  lv_obj_set_width(barreSignal, lv_pct(90));
+  // --- Détails ---
+  labelSsid   = creerInfo(contenu, "Reseau");
+  labelIp     = creerInfo(contenu, "Adresse IP");
+  barreSignal = creerJauge(contenu, "Signal", &labelRssi);
   lv_bar_set_range(barreSignal, -90, -40);
 
   majWifi(nullptr);

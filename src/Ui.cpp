@@ -3,6 +3,7 @@
 #include "App.h"
 #include "Button.h"
 #include "Lvgl.h"
+#include "Theme.h"
 #include "Ui.h"
 
 static int8_t appActive = -1;        // -1 = menu principal
@@ -13,6 +14,13 @@ static bool  dansPage     = false;
 static void (*pageExit)() = nullptr;
 
 static lv_obj_t *barreAppui = nullptr;
+
+// Rechargement de l'écran courant, demandé depuis un callback (changement de thème...)
+static bool rechargementDemande = false;
+
+void uiRecharger() {
+  rechargementDemande = true;      // Traité dans uiUpdate(), hors de tout callback
+}
 
 // Défilement à l'encodeur pour les pages sans widget focusable
 static lv_obj_t     *contenuDefilable = nullptr;
@@ -44,30 +52,49 @@ static void majDefilement() {
   lv_obj_scroll_to_y(contenuDefilable, cibleScroll, LV_ANIM_ON);
 }
 
-// ---------- Écran type : en-tête + zone de contenu ----------
+// ---------- Écran type : titre + zone de contenu ----------
 static lv_obj_t *creerEcran(const char *titre, lv_obj_t **ecranOut) {
   lv_obj_t *ecran = lv_obj_create(nullptr);
+  lv_obj_set_style_bg_color(ecran, lv_color_hex(COUL_FOND), 0);
   lv_obj_set_flex_flow(ecran, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_all(ecran, 0, 0);
   lv_obj_set_style_pad_gap(ecran, 0, 0);
 
+  // --- En-tête : juste un titre, sans barre (style montre) ---
   lv_obj_t *entete = lv_obj_create(ecran);
   lv_obj_set_size(entete, lv_pct(100), LV_SIZE_CONTENT);
-  lv_obj_set_style_radius(entete, 0, 0);
+  lv_obj_set_style_bg_opa(entete, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(entete, 0, 0);
-  lv_obj_set_style_pad_ver(entete, 6, 0);
+  lv_obj_set_style_pad_top(entete, 10, 0);
+  lv_obj_set_style_pad_bottom(entete, 2, 0);
   lv_obj_set_scrollable(entete, false);
 
   lv_obj_t *label = lv_label_create(entete);
   lv_label_set_text(label, titre);
+  lv_obj_set_style_text_font(label, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(label, lv_color_hex(COUL_TEXTE), 0);
   lv_obj_center(label);
 
+  // --- Zone de contenu ---
   lv_obj_t *contenu = lv_obj_create(ecran);
   lv_obj_set_width(contenu, lv_pct(100));
   lv_obj_set_flex_grow(contenu, 1);
   lv_obj_set_style_radius(contenu, 0, 0);
   lv_obj_set_style_border_width(contenu, 0, 0);
   lv_obj_set_style_bg_opa(contenu, LV_OPA_TRANSP, 0);
+
+  // Marges : de l'air autour, et de la place à droite pour la barre de défilement
+  lv_obj_set_style_pad_top(contenu, 10, 0);
+  lv_obj_set_style_pad_bottom(contenu, 16, 0);
+  lv_obj_set_style_pad_left(contenu, 8, 0);
+  lv_obj_set_style_pad_right(contenu, 12, 0);
+  lv_obj_set_style_pad_row(contenu, 8, 0);
+
+  // Barre de défilement fine, visible seulement pendant le défilement
+  lv_obj_set_scrollbar_mode(contenu, LV_SCROLLBAR_MODE_ACTIVE);
+  lv_obj_set_style_width(contenu, 3, LV_PART_SCROLLBAR);
+  lv_obj_set_style_pad_right(contenu, 3, LV_PART_SCROLLBAR);
+
   lv_obj_set_flex_flow(contenu, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(contenu, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -143,20 +170,42 @@ static void afficherMenu(lv_screen_load_anim_t anim) {
   lv_group_remove_all_objs(lv_group_get_default());
 
   lv_obj_t *ecran;
-  lv_obj_t *contenu = creerEcran("ATS-OS", &ecran);
-  lv_obj_set_style_pad_row(contenu, 8, 0);
+  lv_obj_t *contenu = creerEcran("SilkyOS", &ecran);
 
   lv_obj_t *aFocus = nullptr;
 
   for (uint8_t i = 0; i < NB_APPS; i++) {
+    // Carte cliquable : [pastille] Nom ........ >
     lv_obj_t *btn = lv_button_create(contenu);
-    lv_obj_set_size(btn, lv_pct(90), 60);
-    lv_obj_set_style_bg_color(btn, lv_color_hex(apps[i].couleur), 0);
+    lv_obj_set_size(btn, lv_pct(100), LV_SIZE_CONTENT);
+    themeCarte(btn);
+    lv_obj_set_flex_flow(btn, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btn, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(btn, 10, 0);
 
-    lv_obj_t *label = lv_label_create(btn);
-    lv_label_set_text_fmt(label, "%s  %s", apps[i].icone, apps[i].nom);
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_20, 0);
-    lv_obj_center(label);
+    // Pastille colorée avec l'icône
+    lv_obj_t *pastille = lv_obj_create(btn);
+    lv_obj_set_size(pastille, 30, 30);
+    lv_obj_set_style_radius(pastille, 8, 0);
+    lv_obj_set_style_bg_color(pastille, lv_color_hex(apps[i].couleur), 0);
+    lv_obj_set_style_border_width(pastille, 0, 0);
+    lv_obj_set_style_pad_all(pastille, 0, 0);
+    lv_obj_set_scrollable(pastille, false);
+
+    lv_obj_t *icone = lv_label_create(pastille);
+    lv_label_set_text(icone, apps[i].icone);
+    lv_obj_set_style_text_color(icone, lv_color_white(), 0);
+    lv_obj_center(icone);
+
+    // Nom : prend toute la place, ce qui pousse le chevron à droite
+    lv_obj_t *nom = lv_label_create(btn);
+    lv_label_set_text(nom, apps[i].nom);
+    lv_obj_set_flex_grow(nom, 1);
+
+    lv_obj_t *chevron = lv_label_create(btn);
+    lv_label_set_text(chevron, LV_SYMBOL_RIGHT);
+    lv_obj_set_style_text_color(chevron, lv_color_hex(COUL_TEXTE_2), 0);
 
     lv_obj_add_event_cb(btn, clicMenuCb, LV_EVENT_CLICKED, (void *)(intptr_t)i);
     if (i == selection) aFocus = btn;
@@ -227,6 +276,13 @@ void uiInit() {
 void uiUpdate() {
   majBarreAppui();
   majDefilement();
+
+  // Reconstruction demandée (changement de thème, reset...)
+  if (rechargementDemande) {
+    rechargementDemande = false;
+    if (appActive < 0)  afficherMenu(LV_SCR_LOAD_ANIM_FADE_IN);
+    else if (!dansPage) ouvrirApp(appActive, LV_SCR_LOAD_ANIM_FADE_IN);
+  }
 
   bool retour = lvglPopRetour();
   bool menu   = lvglPopMenu();
