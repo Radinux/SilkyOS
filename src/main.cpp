@@ -30,5 +30,8 @@ void loop() {
   lv_timer_handler();   // Moteur LVGL : rendu, animations, lecture encodeur
   uiUpdate();           // Interface : barres, veille, apps en fond, navigation
   batteryTick();        // Mesure batterie (5 fois par seconde)
-  delay(5);
+
+  // En veille, la boucle tourne 10 fois moins vite : 20 tours par seconde suffisent
+  // largement pour détecter un réveil, et le processeur dort entre deux tours.
+  delay(uiEnVeille() ? 50 : 5);
 }

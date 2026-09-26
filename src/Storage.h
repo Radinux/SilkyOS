@@ -15,6 +15,8 @@ struct Reglages {
   uint8_t fuseau;        // Index du fuseau (0 = UTC-12 ... 12 = UTC+0 ... 26 = UTC+14)
   uint8_t veille;        // Index de la durée de veille (voir uiVeilleOptions)
   uint8_t launcher;      // Style du menu : 0 = liste, 1 = grille
+  bool    heureEte;      // Heure d'été automatique (règles de l'UE)
+  bool    aod;           // En veille : horloge atténuée au lieu d'un écran noir
 };
 
 extern Reglages reglages;

@@ -5,7 +5,7 @@
 #include "../Theme.h"
 #include "../Widgets.h"
 
-static lv_obj_t   *labelHeure, *labelSec, *labelDate, *labelSync, *ddFuseau;
+static lv_obj_t   *labelHeure, *labelSec, *labelDate, *labelSync, *ddFuseau, *swEte;
 static lv_timer_t *timerHorloge = nullptr;
 static int         derniereSec  = -1;
 
@@ -32,13 +32,20 @@ static void majHorloge(lv_timer_t *) {
   lv_label_set_text_fmt(labelHeure, "%02d:%02d", t.tm_hour, t.tm_min);
   lv_label_set_text_fmt(labelSec, "%02d", t.tm_sec);
   lv_label_set_text_fmt(labelDate, "%s %d %s", jours[t.tm_wday], t.tm_mday, mois[t.tm_mon]);
-  lv_label_set_text(labelSync, "Synchro NTP");
+  lv_label_set_text(labelSync, clockHeureEte() ? "NTP - heure d'ete" : "Sync NTP");
 }
 
 static void fuseauCb(lv_event_t *e) {
   reglages.fuseau = lv_dropdown_get_selected(ddFuseau);
   storageSave();
   derniereSec = -1;                         // Force le redessin immédiat
+  majHorloge(nullptr);
+}
+
+static void eteCb(lv_event_t *e) {
+  reglages.heureEte = lv_obj_has_state(swEte, LV_STATE_CHECKED);
+  storageSave();
+  derniereSec = -1;
   majHorloge(nullptr);
 }
 
@@ -51,7 +58,7 @@ void horlogeCreate(lv_obj_t *contenu) {
   lv_obj_set_flex_align(heros, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_pad_row(heros, 2, 0);
-  rendreConsultable(heros);       // Le fuseau est le seul widget : l'heure sert d'étape de retour
+  rendreConsultable(heros);
 
   labelHeure = lv_label_create(heros);
   lv_obj_set_style_text_font(labelHeure, &lv_font_montserrat_48, 0);
@@ -67,10 +74,20 @@ void horlogeCreate(lv_obj_t *contenu) {
   labelSync = lv_label_create(heros);
   lv_obj_set_style_text_font(labelSync, &lv_font_montserrat_12, 0);
   lv_obj_set_style_text_color(labelSync, lv_color_hex(COUL_TEXTE_2), 0);
+  lv_obj_set_width(labelSync, lv_pct(100));                     // Passe à la ligne si besoin...
+  lv_obj_set_style_text_align(labelSync, LV_TEXT_ALIGN_CENTER, 0);   // ...en restant centré
 
-  // --- Droite : le choix du fuseau ---
+  // --- Droite : fuseau et heure d'été ---
   ddFuseau = creerDropdown(droite, "Fuseau", clockFuseauOptions(), fuseauCb);
   dropdownSetValeur(ddFuseau, reglages.fuseau);
+
+  lv_obj_t *ligne = creerLigne(droite, "Ete auto");
+  swEte = lv_switch_create(ligne);
+  lv_obj_set_size(swEte, 40, 22);
+  lv_obj_set_style_bg_color(swEte, lv_color_hex(COUL_VERT),
+                            LV_PART_INDICATOR | LV_STATE_CHECKED);
+  lv_obj_set_state(swEte, LV_STATE_CHECKED, reglages.heureEte);
+  lv_obj_add_event_cb(swEte, eteCb, LV_EVENT_VALUE_CHANGED, nullptr);
 
   derniereSec = -1;
   majHorloge(nullptr);

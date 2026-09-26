@@ -105,9 +105,14 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
 
   // ---- Rotation ----
   if (capture) {
-    evtRotation += diff;                      // Un jeu prend les crans pour lui
+    // Un jeu a pris l'encodeur : les crans sont pour lui
+    evtRotation += diff;
     diff = 0;
   } else if (lv_group_get_obj_count(groupe) == 0) {
+    // Page sans widget focusable (Système, Infos WiFi...) : tout sert au défilement
+    evtScroll += diff;
+    diff = 0;
+  } else if (diff != 0 && !lv_group_get_editing(groupe)) {
     diff = (diff > 0) ? 1 : -1;               // Un cran à la fois
     bool versBas = (diff > 0);
 
@@ -120,7 +125,6 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
     }
     // Sinon, LVGL déplace le focus, et reboucle au début ou à la fin si besoin
   }
-
   data->enc_diff = diff;
 
   // ---- Bouton ----

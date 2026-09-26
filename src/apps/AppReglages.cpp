@@ -16,6 +16,7 @@ void infosExit();
 
 static lv_obj_t *sliderLumi, *swSens, *ddWifi, *ddRotation, *ddTheme, *ddVeille, *ddMenu;
 static lv_obj_t *btnWifi, *btnSysteme, *labelReset;
+static lv_obj_t *swAod;
 
 // Élément à refocaliser quand l'écran est reconstruit
 enum { FOCUS_AUCUN = -1, FOCUS_WIFI, FOCUS_SYSTEME, FOCUS_THEME, FOCUS_ROTATION };
@@ -30,6 +31,7 @@ static void rafraichirWidgets() {
   int v = reglages.luminosite * LUMI_PAS / 255;
   sliderSetValeur(sliderLumi, v < 1 ? 1 : v);
   lv_obj_set_state(swSens, LV_STATE_CHECKED, reglages.sensEncodeur);
+  lv_obj_set_state(swAod, LV_STATE_CHECKED, reglages.aod);
   dropdownSetValeur(ddWifi,     reglages.modeWifi);
   dropdownSetValeur(ddRotation, reglages.rotation);
   dropdownSetValeur(ddTheme,    reglages.theme);
@@ -90,6 +92,11 @@ static void menuCb(lv_event_t *e) {
   storageSave();          // Le launcher sera construit avec ce style à son prochain affichage
 }
 
+static void aodCb(lv_event_t *e) {
+  reglages.aod = lv_obj_has_state(swAod, LV_STATE_CHECKED);
+  storageSave();
+}
+
 // Double validation : 1er clic arme, 2e clic exécute, quitter le bouton désarme
 static void resetCb(lv_event_t *e) {
   if (lv_event_get_code(e) == LV_EVENT_DEFOCUSED) {
@@ -133,6 +140,12 @@ void reglagesCreate(lv_obj_t *contenu) {
   ddRotation = creerDropdown(contenu, "Rotation", "0\n90\n180\n270", rotationCb);
   ddTheme    = creerDropdown(contenu, "Theme",    themeOptions(),    themeCb);
   ddVeille   = creerDropdown(contenu, "Veille",   uiVeilleOptions(), veilleCb);
+  lv_obj_t *ligneAod = creerLigne(contenu, "AOD");
+  swAod = lv_switch_create(ligneAod);
+  lv_obj_set_size(swAod, 40, 22);
+  lv_obj_set_style_bg_color(swAod, lv_color_hex(COUL_VERT),
+                            LV_PART_INDICATOR | LV_STATE_CHECKED);
+  lv_obj_add_event_cb(swAod, aodCb, LV_EVENT_VALUE_CHANGED, nullptr);
   ddMenu     = creerDropdown(contenu, "Menu",     "Liste\nGrille",   menuCb);
 
   // Sous-pages
