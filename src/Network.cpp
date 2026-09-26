@@ -5,6 +5,8 @@
 #include "Network.h"
 #include "Storage.h"
 #include "Clock.h"
+#include "Meteo.h"
+#include "Web.h"
 
 enum Etat : uint8_t { ETAT_OFF, ETAT_CONNEXION, ETAT_CONNECTE, ETAT_ECHEC, ETAT_PORTAIL };
 
@@ -20,7 +22,7 @@ static WiFiManager wm;
 static WebServer   serveur(80);
 static bool    portailActif = false;
 static bool    serveurActif = false;
-static bool    otaPret      = false;
+static bool    serveurPret  = false;
 static uint8_t modeActuel   = 255;
 
 // File de demandes de mode (UI → tâche réseau)
@@ -32,25 +34,23 @@ static void arreterServices() {
   if (serveurActif) { serveur.stop();        serveurActif = false; }
 }
 
-// Prépare ElegantOTA une seule fois, avec ses callbacks
-static void preparerOta() {
-  if (otaPret) return;
+// Prépare le serveur web une seule fois : page SilkyOS, API, et OTA
+static void preparerServeur() {
+  if (serveurPret) return;
 
-  ElegantOTA.begin(&serveur);
+  webInit(serveur);                 // "/" et "/api/..."
+  ElegantOTA.begin(&serveur);       // "/update"
 
-  // Ces callbacks tournent dans la tâche réseau : ils ne touchent PAS à LVGL,
-  // ils se contentent de noter l'état pour que l'UI l'affiche.
+  // Ces callbacks tournent dans la tâche réseau : ils ne touchent PAS à LVGL
   ElegantOTA.onStart([]() {
     otaPourcent = 0;
     otaEtat = OTA_EN_COURS;
   });
 
   ElegantOTA.onProgress([](size_t recu, size_t) {
-    // Vraie taille : celle annoncée par le navigateur dans l'en-tête Content-Length.
-    // Si elle est indisponible, on se rabat sur l'estimation (taille du firmware actuel).
+    // Vraie taille annoncée par le navigateur (en-tête Content-Length)
     uint32_t total = serveur.clientContentLength();
     if (total == 0) total = ESP.getSketchSize();
-
     uint32_t p = total ? (uint64_t)recu * 100 / total : 0;
     otaPourcent = p > 99 ? 99 : p;       // 100 % seulement quand c'est vraiment fini
   });
@@ -60,7 +60,7 @@ static void preparerOta() {
     otaEtat = succes ? OTA_REUSSI : OTA_ECHEC;
   });
 
-  otaPret = true;
+  serveurPret = true;
 }
 
 static void appliquerMode(uint8_t mode) {
@@ -93,15 +93,15 @@ static void appliquerMode(uint8_t mode) {
       wm.setConnectTimeout(10);                // Abandon après 10 s
 
       if (wm.autoConnect()) {                  // Bloquant... mais seulement pour CETTE tâche
-        preparerOta();
-        WiFi.setTxPower(WIFI_POWER_11dBm);   // Moins de puissance = pics de courant bien plus faibles
-        clockDemarrerSynchro();              // Heure NTP dès qu'on a internet
+        WiFi.setTxPower(WIFI_POWER_11dBm);     // Moins de puissance = pics de courant plus faibles
+        preparerServeur();
+        clockDemarrerSynchro();                // Heure NTP dès qu'on a internet
         serveur.begin();
         serveurActif = true;
         etat = ETAT_CONNECTE;
         Serial.printf("[WiFi] Connecte a %s (%s)\n",
                       WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
-        Serial.printf("[OTA] http://%s/update\n", WiFi.localIP().toString().c_str());
+        Serial.printf("[Web] http://%s\n", WiFi.localIP().toString().c_str());
       } else {
         etat = ETAT_ECHEC;
         Serial.println("[WiFi] Echec de connexion");
@@ -119,6 +119,7 @@ static void tacheReseau(void *) {
     }
     if (portailActif) wm.process();
     if (serveurActif) { serveur.handleClient(); ElegantOTA.loop(); }
+    if (etat == ETAT_CONNECTE) meteoTache();      // Télécharge la météo quand c'est l'heure
 
     // Diagnostic : plus petite marge de pile jamais atteinte par cette tâche
     static uint32_t dernierLog = 0;
@@ -136,7 +137,7 @@ void netInit() {
 
   BaseType_t ok = xTaskCreatePinnedToCore(
       tacheReseau, "reseau",
-      16384,          // Pile : WiFiManager est gourmand
+      20480,          // Pile : WiFiManager, réception OTA et HTTPS (TLS) sont gourmands
       nullptr,
       1,              // Priorité
       nullptr,
