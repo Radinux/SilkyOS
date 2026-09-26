@@ -114,6 +114,14 @@ static void tacheReseau(void *) {
     }
     if (portailActif) wm.process();
     if (serveurActif) { serveur.handleClient(); ElegantOTA.loop(); }
+
+    // Diagnostic : plus petite marge de pile jamais atteinte par cette tâche
+    static uint32_t dernierLog = 0;
+    if (millis() - dernierLog > 10000) {
+      dernierLog = millis();
+      Serial.printf("[Reseau] pile libre min : %u octets\n",
+                    (unsigned)(uxTaskGetStackHighWaterMark(nullptr) * sizeof(StackType_t)));
+    }
   }
 }
 
@@ -123,7 +131,7 @@ void netInit() {
 
   BaseType_t ok = xTaskCreatePinnedToCore(
       tacheReseau, "reseau",
-      10240,          // Pile : WiFiManager est gourmand
+      16384,          // Pile : WiFiManager est gourmand
       nullptr,
       1,              // Priorité
       nullptr,

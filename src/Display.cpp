@@ -76,3 +76,7 @@ int displayHeight() { return tft.height(); }
 void displayFlush(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t *px) {
   tft.pushImage(x, y, w, h, (lgfx::rgb565_t *)px);
 }
+
+void displayEteindre() {
+  ledcWrite(0, 0);          // Vraiment 0, sans le plancher de sécurité de displaySetBrightness()
+}
