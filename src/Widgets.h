@@ -30,4 +30,19 @@ lv_obj_t *creerDropdown(lv_obj_t *parent, const char *nom,
 // Change le choix d'un dropdown créé par creerDropdown() (met aussi le texte à jour)
 void dropdownSetValeur(lv_obj_t *dd, uint32_t index);
 
+// Rangée transparente pour poser des éléments côte à côte (boutons, rouleaux...)
+lv_obj_t *creerRangeeVide(lv_obj_t *parent);
+
+// Bouton-carte au texte centré, qui se partage la largeur d'une creerRangeeVide()
+lv_obj_t *creerBoutonAction(lv_obj_t *parent, const char *texte,
+                            uint32_t couleurTexte, lv_event_cb_t cb);
+void      boutonSetTexte(lv_obj_t *btn, const char *texte, uint32_t couleur);
+
+// Rend une carte atteignable par l'encodeur (pour la faire défiler), sans surbrillance
+void rendreConsultable(lv_obj_t *obj);
+
+// Paysage : le contenu devient deux colonnes côte à côte (gauche ~55 %, droite ~45 %).
+// Portrait : gauche et droite valent simplement le contenu, rien ne change.
+void creerColonnes(lv_obj_t *contenu, lv_obj_t **gauche, lv_obj_t **droite);
+
 #endif

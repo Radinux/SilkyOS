@@ -18,7 +18,7 @@ static lv_obj_t *sliderLumi, *swSens, *ddWifi, *ddRotation, *ddTheme, *ddVeille;
 static lv_obj_t *btnWifi, *btnSysteme, *labelReset;
 
 // Élément à refocaliser quand l'écran est reconstruit
-enum { FOCUS_AUCUN = -1, FOCUS_WIFI, FOCUS_SYSTEME, FOCUS_THEME };
+enum { FOCUS_AUCUN = -1, FOCUS_WIFI, FOCUS_SYSTEME, FOCUS_THEME, FOCUS_ROTATION };
 static int8_t focusRetour = FOCUS_AUCUN;
 
 static bool resetArme = false;
@@ -57,6 +57,8 @@ static void rotationCb(lv_event_t *e) {
   reglages.rotation = lv_dropdown_get_selected(ddRotation);
   storageSave();
   lvglSetRotation(reglages.rotation);
+  focusRetour = FOCUS_ROTATION;    // On revient sur ce réglage après reconstruction
+  uiRecharger();                   // L'écran est recréé pour la nouvelle orientation
 }
 
 static void themeCb(lv_event_t *e) {
@@ -147,6 +149,7 @@ void reglagesCreate(lv_obj_t *contenu) {
   if (focusRetour == FOCUS_WIFI)    lv_group_focus_obj(btnWifi);
   if (focusRetour == FOCUS_SYSTEME) lv_group_focus_obj(btnSysteme);
   if (focusRetour == FOCUS_THEME)   lv_group_focus_obj(ddTheme);
+  if (focusRetour == FOCUS_ROTATION) lv_group_focus_obj(ddRotation);
   focusRetour = FOCUS_AUCUN;
 }
 

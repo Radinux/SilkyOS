@@ -3,13 +3,16 @@
 
 #include <lvgl.h>
 
+// ---------- Pour main.cpp ----------
 void uiInit();
 void uiUpdate();
-void uiRecharger();   // Reconstruit l'écran courant au prochain tour (changement de thème...)
 
-const char *uiVeilleOptions();   // "Jamais\n15 s\n..." pour le dropdown des Réglages
-
+// ---------- Pour les apps ----------
 // Ouvre une sous-page depuis une app. Moyen = retour à l'app, long = menu.
-void uiOuvrirPage(const char *titre, void (*onCreate)(lv_obj_t *), void (*onExit)());
+void        uiOuvrirPage(const char *titre, void (*onCreate)(lv_obj_t *), void (*onExit)());
+void        uiRecharger();                                   // Reconstruit l'écran courant
+void        uiAlerte(const char *titre, const char *texte);  // Alerte plein écran bloquante
+bool        uiPaysage();                                     // L'écran est-il plus large que haut ?
+const char *uiVeilleOptions();                               // "Jamais\n15 s\n..." pour un dropdown
 
 #endif

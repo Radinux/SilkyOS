@@ -9,11 +9,8 @@
 #include "Theme.h"
 
 static const int LIGNES_BUFFER = 40;     // LVGL rend l'écran par bandes de 40 lignes
-static lv_display_t *disp = nullptr;
-static lv_group_t *groupe = nullptr;
-static bool     enVeille         = false;
-static bool     evtReveil        = false;
-static uint32_t derniereActivite = 0;
+static lv_display_t *disp   = nullptr;
+static lv_group_t   *groupe = nullptr;
 
 // ---------- Horloge et affichage ----------
 static uint32_t tickMillis() { return millis(); }
@@ -25,15 +22,55 @@ static void flushCb(lv_display_t *d, const lv_area_t *area, uint8_t *px) {
   lv_display_flush_ready(d);
 }
 
-// ---------- Entrées : encodeur + bouton ----------
+// ---------- État des entrées ----------
 static ButtonTracker bouton;
 
-static bool     evtRetour  = false;
-static bool     evtMenu    = false;
-static bool     presse     = false;
-static uint32_t debutAppui = 0;
-static int32_t  evtScroll  = 0;
+static bool     evtRetour        = false;
+static bool     evtMenu          = false;
+static int32_t  evtScroll        = 0;
+static bool     presse           = false;
+static uint32_t debutAppui       = 0;
 
+static bool     enVeille         = false;
+static bool     evtReveil        = false;
+static uint32_t derniereActivite = 0;
+
+// ---------- Outils de navigation ----------
+// Un objet est-il caché, lui ou l'un de ses parents ?
+static bool estCache(lv_obj_t *o) {
+  for (; o; o = lv_obj_get_parent(o)) {
+    if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) return true;
+  }
+  return false;
+}
+
+// Le focus est-il sur le premier (ou le dernier) widget VISIBLE du groupe ?
+static bool focusAuBout(bool fin) {
+  lv_obj_t *focus = lv_group_get_focused(groupe);
+  uint32_t n = lv_group_get_obj_count(groupe);
+
+  for (uint32_t k = 0; k < n; k++) {
+    lv_obj_t *o = lv_group_get_obj_by_index(groupe, fin ? n - 1 - k : k);
+    if (!estCache(o)) return o == focus;    // Premier widget visible depuis ce bout
+  }
+  return true;
+}
+
+// La page qui contient le focus peut-elle encore défiler dans ce sens ?
+static bool peutDefiler(bool versBas) {
+  lv_obj_t *focus = lv_group_get_focused(groupe);
+  if (!focus) return false;
+
+  // On remonte jusqu'au premier parent défilable : la zone de contenu de l'écran
+  for (lv_obj_t *o = lv_obj_get_parent(focus); o; o = lv_obj_get_parent(o)) {
+    if (lv_obj_has_flag(o, LV_OBJ_FLAG_SCROLLABLE)) {
+      return versBas ? lv_obj_get_scroll_bottom(o) > 0 : lv_obj_get_scroll_top(o) > 0;
+    }
+  }
+  return false;
+}
+
+// ---------- Lecture de l'encodeur (appelée par LVGL) ----------
 static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
   static bool relacherAuProchain = false;
   static bool longTraite = false;
@@ -64,15 +101,23 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
 
   // ---- Rotation ----
   if (lv_group_get_obj_count(groupe) == 0) {
-    // Page sans widget focusable : la rotation sert au défilement (géré par Ui)
+    // Page sans widget focusable : tout sert au défilement
     evtScroll += diff;
     diff = 0;
   } else if (diff != 0 && !lv_group_get_editing(groupe)) {
-    // Navigation : un cran à la fois, rien pendant une animation
-    if (lv_anim_count_running() > 0) diff = 0;
-    else if (diff > 1)               diff = 1;
-    else if (diff < -1)              diff = -1;
+    diff = (diff > 0) ? 1 : -1;               // Un cran à la fois
+    bool versBas = (diff > 0);
+
+    if (focusAuBout(versBas) && peutDefiler(versBas)) {
+      // Au bout des widgets, mais il reste de la page à voir : on la fait défiler
+      evtScroll += diff;
+      diff = 0;
+    } else if (lv_anim_count_running() > 0) {
+      diff = 0;                               // Rien pendant une animation
+    }
+    // Sinon, LVGL déplace le focus, et reboucle au début ou à la fin si besoin
   }
+  
   data->enc_diff = diff;
 
   // ---- Bouton ----
@@ -120,9 +165,11 @@ void lvglInit() {
   lv_indev_set_type(indev, LV_INDEV_TYPE_ENCODER);
   lv_indev_set_read_cb(indev, encoderReadCb);
 
-  groupe = lv_group_create();          // ← plus de "lv_group_t *" devant
+  groupe = lv_group_create();
   lv_group_set_default(groupe);
   lv_indev_set_group(indev, groupe);
+
+  derniereActivite = millis();    // Le compte à rebours de veille démarre au boot
 }
 
 // ---------- API ----------
@@ -133,9 +180,11 @@ void lvglSetRotation(uint8_t rotation) {
 
 bool     lvglPopRetour()    { bool e = evtRetour; evtRetour = false; return e; }
 bool     lvglPopMenu()      { bool e = evtMenu;   evtMenu   = false; return e; }
+int32_t  lvglPopScroll()    { int32_t d = evtScroll; evtScroll = 0; return d; }
 bool     lvglBoutonPresse() { return presse; }
 uint32_t lvglDebutAppui()   { return debutAppui; }
-int32_t  lvglPopScroll()    { int32_t d = evtScroll; evtScroll = 0; return d; }
+
+// ---------- Veille ----------
 uint32_t lvglInactivite() { return millis() - derniereActivite; }
 
 void lvglSetVeille(bool v) {

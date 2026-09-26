@@ -43,22 +43,15 @@ static void fuseauCb(lv_event_t *e) {
 }
 
 void horlogeCreate(lv_obj_t *contenu) {
-  // --- Carte héros : l'heure en grand ---
-  lv_obj_t *heros = creerCarte(contenu);
+  lv_obj_t *gauche, *droite;
+  creerColonnes(contenu, &gauche, &droite);
+
+  // --- Gauche : l'heure en grand ---
+  lv_obj_t *heros = creerCarte(gauche);
   lv_obj_set_flex_align(heros, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_pad_row(heros, 2, 0);
-
-  // Focusable : en paysage, tourner l'encodeur ramène le focus (et donc le défilement)
-  // jusqu'à l'heure. Ajoutée en premier au groupe : c'est elle qui a le focus à l'ouverture.
-  lv_group_add_obj(lv_group_get_default(), heros);
-  // Un simple lv_obj n'a pas ce drapeau par défaut (les widgets, eux, l'activent tout seuls)
-  lv_obj_add_flag(heros, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-
-  // Mais sans surbrillance : l'heure n'est pas un bouton, pas de liseré au focus.
-  // (Styles locaux : ils l'emportent sur ceux ajoutés par themeCarte)
-  lv_obj_set_style_border_width(heros, 0, LV_STATE_FOCUSED);
-  lv_obj_set_style_bg_color(heros, lv_color_hex(COUL_CARTE), LV_STATE_FOCUSED);
+  rendreConsultable(heros);       // Le fuseau est le seul widget : l'heure sert d'étape de retour
 
   labelHeure = lv_label_create(heros);
   lv_obj_set_style_text_font(labelHeure, &lv_font_montserrat_48, 0);
@@ -75,8 +68,8 @@ void horlogeCreate(lv_obj_t *contenu) {
   lv_obj_set_style_text_font(labelSync, &lv_font_montserrat_12, 0);
   lv_obj_set_style_text_color(labelSync, lv_color_hex(COUL_TEXTE_2), 0);
 
-  // --- Choix du fuseau ---
-  ddFuseau = creerDropdown(contenu, "Fuseau", clockFuseauOptions(), fuseauCb);
+  // --- Droite : le choix du fuseau ---
+  ddFuseau = creerDropdown(droite, "Fuseau", clockFuseauOptions(), fuseauCb);
   dropdownSetValeur(ddFuseau, reglages.fuseau);
 
   derniereSec = -1;

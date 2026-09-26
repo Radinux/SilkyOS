@@ -1,6 +1,6 @@
 #include "Widgets.h"
 #include "Theme.h"
-
+#include "Ui.h"
 // ---------- Briques de base ----------
 lv_obj_t *creerCarte(lv_obj_t *parent) {
   lv_obj_t *carte = lv_obj_create(parent);
@@ -186,4 +186,85 @@ lv_obj_t *creerDropdown(lv_obj_t *parent, const char *nom,
 void dropdownSetValeur(lv_obj_t *dd, uint32_t index) {
   lv_dropdown_set_selected(dd, index);
   majDropdown(dd);           // Comme pour le slider : un changement par le code n'envoie pas d'événement
+}
+
+// ---------- Rangées et boutons d'action ----------
+lv_obj_t *creerRangeeVide(lv_obj_t *parent) {
+  lv_obj_t *r = lv_obj_create(parent);
+  lv_obj_set_size(r, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_style_bg_opa(r, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(r, 0, 0);
+  lv_obj_set_style_pad_all(r, 4, 0);
+  lv_obj_set_style_pad_column(r, 8, 0);
+  lv_obj_set_scrollable(r, false);
+  lv_obj_set_flex_flow(r, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(r, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  return r;
+}
+
+void boutonSetTexte(lv_obj_t *btn, const char *texte, uint32_t couleur) {
+  lv_obj_t *label = lv_obj_get_child(btn, 0);     // Le label est le premier enfant
+  lv_label_set_text(label, texte);
+  lv_obj_set_style_text_color(label, lv_color_hex(couleur), 0);
+}
+
+lv_obj_t *creerBoutonAction(lv_obj_t *parent, const char *texte,
+                            uint32_t couleurTexte, lv_event_cb_t cb) {
+  lv_obj_t *btn = lv_button_create(parent);
+  lv_obj_set_height(btn, LV_SIZE_CONTENT);
+  lv_obj_set_flex_grow(btn, 1);                   // Largeur partagée avec ses voisins
+  themeCarte(btn);
+  lv_obj_set_style_pad_hor(btn, 4, 0);            // Local : gagne sur la marge de la carte
+
+  lv_obj_t *label = lv_label_create(btn);
+  lv_obj_set_style_text_font(label, &lv_font_montserrat_20, 0);
+  lv_obj_center(label);
+
+  boutonSetTexte(btn, texte, couleurTexte);
+  lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
+  return btn;
+}
+
+// ---------- Cartes consultables ----------
+void rendreConsultable(lv_obj_t *obj) {
+  lv_group_add_obj(lv_group_get_default(), obj);          // Atteignable par l'encodeur
+  lv_obj_add_flag(obj, LV_OBJ_FLAG_SCROLL_ON_FOCUS);      // ...et on défile jusqu'à elle
+
+  // Sans surbrillance, sur les deux états de focus (même piège que dans themeCarte)
+  lv_obj_set_style_border_width(obj, 0, LV_STATE_FOCUSED);
+  lv_obj_set_style_border_width(obj, 0, LV_STATE_FOCUS_KEY);
+  lv_obj_set_style_bg_color(obj, lv_color_hex(COUL_CARTE), LV_STATE_FOCUSED);
+  lv_obj_set_style_bg_color(obj, lv_color_hex(COUL_CARTE), LV_STATE_FOCUS_KEY);
+}
+
+// ---------- Mise en page paysage ----------
+static lv_obj_t *creerColonne(lv_obj_t *parent, uint8_t poids) {
+  lv_obj_t *c = lv_obj_create(parent);
+  lv_obj_set_height(c, LV_SIZE_CONTENT);
+  lv_obj_set_flex_grow(c, poids);              // La largeur se répartit selon les poids
+  lv_obj_set_style_bg_opa(c, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(c, 0, 0);
+  lv_obj_set_style_pad_all(c, 0, 0);
+  lv_obj_set_style_pad_row(c, 8, 0);
+  lv_obj_set_scrollable(c, false);
+  lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(c, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  return c;
+}
+
+void creerColonnes(lv_obj_t *contenu, lv_obj_t **gauche, lv_obj_t **droite) {
+  if (!uiPaysage()) {
+    *gauche = *droite = contenu;               // Portrait : une seule colonne, comme avant
+    return;
+  }
+
+  lv_obj_set_flex_flow(contenu, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(contenu, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+  lv_obj_set_style_pad_column(contenu, 6, 0);
+
+  *gauche = creerColonne(contenu, 11);         // 11 / 20 ≈ 55 %
+  *droite = creerColonne(contenu, 9);          //  9 / 20 ≈ 45 %
 }

@@ -67,7 +67,10 @@ void themeAppliquer(uint8_t index) {
 
 void themeCarte(lv_obj_t *obj) {
   lv_obj_add_style(obj, &styleCarte, 0);
+  // À l'encodeur, un widget est FOCUSED *et* FOCUS_KEY, et FOCUS_KEY l'emporte :
+  // on applique notre style aux deux, sinon le contour du thème revient par FOCUS_KEY
   lv_obj_add_style(obj, &styleCarteFocus, LV_STATE_FOCUSED);
+  lv_obj_add_style(obj, &styleCarteFocus, LV_STATE_FOCUS_KEY);
 }
 
 const char *themeOptions() {

@@ -9,6 +9,7 @@ struct App {
   uint32_t    couleur;                    // 0xRRGGBB
   void (*onCreate)(lv_obj_t *contenu);    // Construit les widgets dans "contenu"
   void (*onExit)();                       // Nettoyage (timers, sauvegarde), peut être nullptr
+  void (*onFond)();                       // Travail en arrière-plan, appelé en permanence (peut être nullptr)
 };
 
 extern const App     apps[];
