@@ -33,18 +33,20 @@ static void majStyles() {
 }
 
 void themeInit() {
-  // Propriétés fixes, communes à toutes les palettes
+  // Carte : gris très foncé, bien arrondie, sans ombre
   lv_style_init(&styleCarte);
   lv_style_set_bg_opa(&styleCarte, LV_OPA_COVER);
   lv_style_set_radius(&styleCarte, 14);
-  lv_style_set_border_width(&styleCarte, 0);
   lv_style_set_shadow_width(&styleCarte, 0);
-  lv_style_set_pad_hor(&styleCarte, 10);
-  lv_style_set_pad_ver(&styleCarte, 10);
+  lv_style_set_border_width(&styleCarte, 2);             // Bordure TOUJOURS présente...
+  lv_style_set_border_opa(&styleCarte, LV_OPA_TRANSP);   // ...mais invisible au repos
+  lv_style_set_pad_hor(&styleCarte, 8);                  // 10 - 2 : compense la bordure
+  lv_style_set_pad_ver(&styleCarte, 8);
 
+  // Carte sélectionnée : un cran plus claire, la bordure devient visible (même épaisseur)
   lv_style_init(&styleCarteFocus);
-  lv_style_set_border_width(&styleCarteFocus, 2);
-  lv_style_set_outline_width(&styleCarteFocus, 0);
+  lv_style_set_border_opa(&styleCarteFocus, LV_OPA_COVER);
+  lv_style_set_outline_width(&styleCarteFocus, 0);       // Pas le contour du thème
 
   themeAppliquer(reglages.theme);
 }

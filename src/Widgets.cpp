@@ -231,11 +231,12 @@ void rendreConsultable(lv_obj_t *obj) {
   lv_group_add_obj(lv_group_get_default(), obj);          // Atteignable par l'encodeur
   lv_obj_add_flag(obj, LV_OBJ_FLAG_SCROLL_ON_FOCUS);      // ...et on défile jusqu'à elle
 
-  // Sans surbrillance, sur les deux états de focus (même piège que dans themeCarte)
-  lv_obj_set_style_border_width(obj, 0, LV_STATE_FOCUSED);
-  lv_obj_set_style_border_width(obj, 0, LV_STATE_FOCUS_KEY);
-  lv_obj_set_style_bg_color(obj, lv_color_hex(COUL_CARTE), LV_STATE_FOCUSED);
-  lv_obj_set_style_bg_color(obj, lv_color_hex(COUL_CARTE), LV_STATE_FOCUS_KEY);
+  // Sans surbrillance : bordure gardée mais transparente, fond inchangé
+  const lv_style_selector_t etats[] = { LV_STATE_FOCUSED, LV_STATE_FOCUS_KEY };
+  for (lv_style_selector_t s : etats) {
+    lv_obj_set_style_border_opa(obj, LV_OPA_TRANSP, s);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(COUL_CARTE), s);
+  }
 }
 
 // ---------- Mise en page paysage ----------

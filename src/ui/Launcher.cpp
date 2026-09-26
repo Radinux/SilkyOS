@@ -56,21 +56,23 @@ static lv_obj_t *creerTuileApp(lv_obj_t *parent, uint8_t i) {
   // 2 tuiles par rangée en portrait, 4 en paysage
   lv_obj_set_size(btn, uiPaysage() ? lv_pct(23) : lv_pct(46), LV_SIZE_CONTENT);
 
-  // Tuile transparente au repos...
+  // Tuile transparente au repos, avec une bordure permanente mais invisible
+  // (la largeur ne change jamais au focus : aucun texte ne saute de ligne)
   lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, 0);
   lv_obj_set_style_shadow_width(btn, 0, 0);
-  lv_obj_set_style_border_width(btn, 0, 0);
+  lv_obj_set_style_border_width(btn, 2, 0);
+  lv_obj_set_style_border_opa(btn, LV_OPA_TRANSP, 0);
   lv_obj_set_style_radius(btn, 14, 0);
   lv_obj_set_style_pad_ver(btn, 8, 0);
   lv_obj_set_style_pad_hor(btn, 2, 0);
   lv_obj_set_style_pad_row(btn, 6, 0);
 
-  // ...qui s'éclaire au focus (sur les DEUX états de focus, cf. le piège FOCUS_KEY)
+  // Au focus : fond éclairé + bordure visible (sur les DEUX états de focus)
   const lv_style_selector_t etats[] = { LV_STATE_FOCUSED, LV_STATE_FOCUS_KEY };
   for (lv_style_selector_t s : etats) {
     lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, s);
     lv_obj_set_style_bg_color(btn, lv_color_hex(COUL_CARTE_FOCUS), s);
-    lv_obj_set_style_border_width(btn, 2, s);
+    lv_obj_set_style_border_opa(btn, LV_OPA_COVER, s);
     lv_obj_set_style_border_color(btn, lv_color_hex(COUL_ACCENT), s);
     lv_obj_set_style_outline_width(btn, 0, s);
   }
