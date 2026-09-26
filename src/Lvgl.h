@@ -16,4 +16,10 @@ uint32_t lvglInactivite();                    // ms depuis la dernière action d
 void     lvglSetVeille(bool enVeille);        // En veille, les entrées ne servent qu'à réveiller
 bool     lvglPopReveil();                     // Vrai une fois si l'utilisateur a réveillé l'écran
 
+// Capture de l'encodeur (jeux) : les crans et les clics vont à l'app, plus à LVGL.
+// L'appui moyen (retour) et long (menu) continuent de fonctionner normalement.
+void    lvglCaptureEncodeur(bool active);
+int32_t lvglPopRotation();    // Crans depuis le dernier appel (signés)
+bool    lvglPopClic();        // Vrai une fois après un clic court
+
 #endif

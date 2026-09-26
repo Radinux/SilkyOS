@@ -35,6 +35,10 @@ static bool     enVeille         = false;
 static bool     evtReveil        = false;
 static uint32_t derniereActivite = 0;
 
+static bool     capture          = false;
+static int32_t  evtRotation      = 0;
+static bool     evtClic          = false;
+
 // ---------- Outils de navigation ----------
 // Un objet est-il caché, lui ou l'un de ses parents ?
 static bool estCache(lv_obj_t *o) {
@@ -100,11 +104,10 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
   }
 
   // ---- Rotation ----
-  if (lv_group_get_obj_count(groupe) == 0) {
-    // Page sans widget focusable : tout sert au défilement
-    evtScroll += diff;
+  if (capture) {
+    evtRotation += diff;                      // Un jeu prend les crans pour lui
     diff = 0;
-  } else if (diff != 0 && !lv_group_get_editing(groupe)) {
+  } else if (lv_group_get_obj_count(groupe) == 0) {
     diff = (diff > 0) ? 1 : -1;               // Un cran à la fois
     bool versBas = (diff > 0);
 
@@ -117,7 +120,7 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
     }
     // Sinon, LVGL déplace le focus, et reboucle au début ou à la fin si besoin
   }
-  
+
   data->enc_diff = diff;
 
   // ---- Bouton ----
@@ -129,8 +132,12 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
   if (btn.isLongPressed && !longTraite) { longTraite = true; evtMenu = true; }
   if (!btn.isPressed) longTraite = false;
 
-  // Clic court : clic synthétique pour LVGL
-  if (relacherAuProchain) {
+  // Clic court : pour le jeu qui a capturé l'encodeur, sinon clic synthétique pour LVGL
+  if (capture) {
+    if (btn.wasClicked) evtClic = true;
+    data->state = LV_INDEV_STATE_RELEASED;
+    relacherAuProchain = false;
+  } else if (relacherAuProchain) {
     data->state = LV_INDEV_STATE_RELEASED;
     relacherAuProchain = false;
   } else if (btn.wasClicked) {
@@ -193,3 +200,13 @@ void lvglSetVeille(bool v) {
 }
 
 bool lvglPopReveil() { bool e = evtReveil; evtReveil = false; return e; }
+
+// ---------- Capture (jeux) ----------
+void lvglCaptureEncodeur(bool active) {
+  capture = active;
+  evtRotation = 0;
+  evtClic = false;
+}
+
+int32_t lvglPopRotation() { int32_t r = evtRotation; evtRotation = 0; return r; }
+bool    lvglPopClic()     { bool c = evtClic; evtClic = false; return c; }
