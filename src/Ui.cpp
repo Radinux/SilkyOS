@@ -72,6 +72,27 @@ lv_obj_t *uiCreerVoile() {
   return v;
 }
 
+lv_obj_t *uiCreerLogo(lv_obj_t *parent, const lv_font_t *police) {
+  lv_obj_t *logo = lv_obj_create(parent);
+  lv_obj_set_size(logo, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_style_bg_opa(logo, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(logo, 0, 0);
+  lv_obj_set_style_pad_all(logo, 0, 0);
+  lv_obj_set_scrollable(logo, false);
+  lv_obj_set_flex_flow(logo, LV_FLEX_FLOW_ROW);          // "Silky" et "OS" collés
+
+  lv_obj_t *silky = lv_label_create(logo);
+  lv_label_set_text(silky, "Silky");
+  lv_obj_set_style_text_font(silky, police, 0);
+  lv_obj_set_style_text_color(silky, lv_color_hex(COUL_TEXTE), 0);
+
+  lv_obj_t *os = lv_label_create(logo);
+  lv_label_set_text(os, "OS");
+  lv_obj_set_style_text_font(os, police, 0);
+  lv_obj_set_style_text_color(os, lv_color_hex(COUL_ACCENT), 0);
+  return logo;
+}
+
 lv_obj_t *uiCreerEcran(const char *titre, lv_obj_t **ecranOut) {
   lv_group_remove_all_objs(lv_group_get_default());   // Nouvel écran : le focus repart de zéro
   bool pay = uiPaysage();
@@ -91,11 +112,17 @@ lv_obj_t *uiCreerEcran(const char *titre, lv_obj_t **ecranOut) {
   lv_obj_set_style_pad_bottom(entete, 2, 0);
   lv_obj_set_scrollable(entete, false);
 
-  lv_obj_t *label = lv_label_create(entete);
-  lv_label_set_text(label, titre);
-  lv_obj_set_style_text_font(label, pay ? &lv_font_montserrat_14 : &lv_font_montserrat_20, 0);
-  lv_obj_set_style_text_color(label, lv_color_hex(COUL_TEXTE), 0);
-  lv_obj_center(label);
+  const lv_font_t *policeTitre = pay ? &lv_font_montserrat_14 : &lv_font_montserrat_20;
+
+  if (titre) {
+    lv_obj_t *label = lv_label_create(entete);
+    lv_label_set_text(label, titre);
+    lv_obj_set_style_text_font(label, policeTitre, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(COUL_TEXTE), 0);
+    lv_obj_center(label);
+  } else {
+    lv_obj_center(uiCreerLogo(entete, policeTitre));     // Pas de titre : le logo
+  }
 
   // --- Zone de contenu ---
   lv_obj_t *contenu = lv_obj_create(ecran);

@@ -2,18 +2,10 @@
 #include "../Config.h"
 #include "../Theme.h"
 #include "../Ui.h"
-#include "../Widgets.h"
 #include "UiInterne.h"
 
 static void finCb(lv_timer_t *) {
   uiAfficherMenu(LV_SCR_LOAD_ANIM_FADE_IN);       // Supprime l'écran de boot au passage
-}
-
-static void creerTexteLogo(lv_obj_t *parent, const char *texte, uint32_t couleur) {
-  lv_obj_t *l = lv_label_create(parent);
-  lv_label_set_text(l, texte);
-  lv_obj_set_style_text_font(l, &lv_font_montserrat_28, 0);
-  lv_obj_set_style_text_color(l, lv_color_hex(couleur), 0);
 }
 
 void demarrageAfficher() {
@@ -21,11 +13,8 @@ void demarrageAfficher() {
   lv_obj_set_style_bg_color(ecran, lv_color_hex(COUL_FOND), 0);
 
   // Logo : "Silky" en blanc + "OS" en couleur d'accent, collés
-  lv_obj_t *logo = creerRangeeVide(ecran);
-  lv_obj_set_style_pad_column(logo, 0, 0);
-  creerTexteLogo(logo, "Silky", COUL_TEXTE);
-  creerTexteLogo(logo, "OS",    COUL_ACCENT);
-  lv_obj_fade_in(logo, 600, 0);
+  lv_obj_t *logo = uiCreerLogo(ecran, &lv_font_montserrat_28);
+  lv_obj_fade_in(logo, 600, 0);                         // Le logo apparaît en douceur
 
   lv_obj_t *version = lv_label_create(ecran);
   lv_label_set_text(version, "v" SILKY_VERSION);

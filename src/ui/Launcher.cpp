@@ -93,7 +93,7 @@ static lv_obj_t *creerTuileApp(lv_obj_t *parent, uint8_t i) {
 // ---------- Affichage ----------
 void launcherAfficher(int8_t selection, lv_screen_load_anim_t anim) {
   lv_obj_t *ecran;
-  lv_obj_t *contenu = uiCreerEcran("SilkyOS", &ecran);
+  lv_obj_t *contenu = uiCreerEcran(nullptr, &ecran);     // nullptr = logo SilkyOS en titre
 
   bool grille = (reglages.launcher == 1);
   if (grille) {
