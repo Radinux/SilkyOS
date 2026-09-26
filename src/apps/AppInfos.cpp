@@ -1,8 +1,10 @@
 #include <Arduino.h>
+#include <esp_system.h>
 #include "../App.h"
 #include "../Theme.h"
 #include "../Widgets.h"
 #include "../Battery.h"
+#include "../Diag.h"
 
 static lv_obj_t   *barreBatt, *labelBatt, *labelTension;
 static lv_obj_t   *barreRam, *barrePsram, *labelRam, *labelPsram, *labelUptime;
@@ -77,6 +79,15 @@ void infosCreate(lv_obj_t *contenu) {
   // --- Uptime ---
   labelUptime = creerInfo(contenu, "Uptime");
   lv_obj_set_style_text_font(labelUptime, &lv_font_montserrat_20, 0);
+
+  // --- Diagnostic : pourquoi la carte a-t-elle démarré ? ---
+  lv_obj_t *labelReset = creerInfo(contenu, "Dernier reset");
+  lv_label_set_text(labelReset, diagRaisonReset());
+
+  esp_reset_reason_t r = esp_reset_reason();
+  bool anormal = (r == ESP_RST_PANIC   || r == ESP_RST_BROWNOUT ||
+                  r == ESP_RST_INT_WDT || r == ESP_RST_TASK_WDT || r == ESP_RST_WDT);
+  if (anormal) lv_obj_set_style_text_color(labelReset, lv_color_hex(COUL_ROUGE), 0);
 
   majInfos(nullptr);
   timer = lv_timer_create(majInfos, 500, nullptr);

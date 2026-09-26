@@ -46,10 +46,13 @@ static void preparerOta() {
   });
 
   ElegantOTA.onProgress([](size_t recu, size_t) {
-    // Taille du nouveau firmware inconnue : on l'estime avec celle de l'actuel
-    uint32_t estime = ESP.getSketchSize();
-    uint32_t p = estime ? (uint64_t)recu * 100 / estime : 0;
-    otaPourcent = p > 99 ? 99 : p;
+    // Vraie taille : celle annoncée par le navigateur dans l'en-tête Content-Length.
+    // Si elle est indisponible, on se rabat sur l'estimation (taille du firmware actuel).
+    uint32_t total = serveur.clientContentLength();
+    if (total == 0) total = ESP.getSketchSize();
+
+    uint32_t p = total ? (uint64_t)recu * 100 / total : 0;
+    otaPourcent = p > 99 ? 99 : p;       // 100 % seulement quand c'est vraiment fini
   });
 
   ElegantOTA.onEnd([](bool succes) {
@@ -75,6 +78,7 @@ static void appliquerMode(uint8_t mode) {
 
     case ATS_WIFI_AP:
       WiFi.mode(WIFI_AP_STA);
+      WiFi.setTxPower(WIFI_POWER_11dBm);
       wm.setConfigPortalBlocking(false);
       wm.startConfigPortal("SilkyOS-Setup");
       portailActif = true;
@@ -90,6 +94,7 @@ static void appliquerMode(uint8_t mode) {
 
       if (wm.autoConnect()) {                  // Bloquant... mais seulement pour CETTE tâche
         preparerOta();
+        WiFi.setTxPower(WIFI_POWER_11dBm);   // Moins de puissance = pics de courant bien plus faibles
         clockDemarrerSynchro();              // Heure NTP dès qu'on a internet
         serveur.begin();
         serveurActif = true;

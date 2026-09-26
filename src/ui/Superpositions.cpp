@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <lvgl.h>
+#include "../Display.h"
 #include "../Network.h"
+#include "../Storage.h"
 #include "../Theme.h"
 #include "../Ui.h"
 #include "UiInterne.h"
@@ -55,7 +57,11 @@ static void majEcranMaj() {
   uint8_t etat = netOtaEtat();
 
   if (etat == OTA_AUCUN) {
-    if (visible) { lv_obj_set_hidden(voileMaj, true); visible = false; }
+    if (visible) {
+      lv_obj_set_hidden(voileMaj, true);
+      displaySetBrightness(reglages.luminosite);   // Luminosité normale (après un échec)
+      visible = false;
+    }
     dernierEtat = OTA_AUCUN;
     return;
   }
@@ -71,6 +77,7 @@ static void majEcranMaj() {
     lv_obj_set_style_arc_color(arcMaj, lv_color_hex(COUL_CARTE_FOCUS), LV_PART_MAIN);
     lv_obj_set_style_bg_color(barreMaj, lv_color_hex(COUL_CARTE_FOCUS), 0);
 
+    displaySetBrightness(50);          // Écran atténué : moins de courant pendant l'écriture flash
     lv_obj_set_hidden(voileMaj, false);
     visible = true;
     dernierPct = 255;

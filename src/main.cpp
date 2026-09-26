@@ -1,57 +1,34 @@
-#include "Battery.h"
+#include <Arduino.h>
+#include <lvgl.h>
 #include "Config.h"
+#include "Diag.h"
 #include "Display.h"
 #include "Encoder.h"
-#include "Lvgl.h"
-#include "Network.h"
 #include "Storage.h"
+#include "Battery.h"
+#include "Network.h"
+#include "Lvgl.h"
 #include "Ui.h"
-#include <Arduino.h>
-#include <esp_system.h>
-#include <lvgl.h>
-
-// Traduit la raison du dernier redémarrage (elle survit au reset)
-static const char *raisonReset() {
-  switch (esp_reset_reason()) {
-  case ESP_RST_POWERON:
-    return "mise sous tension";
-  case ESP_RST_SW:
-    return "redemarrage logiciel";
-  case ESP_RST_PANIC:
-    return "PANIC (exception ou assert)";
-  case ESP_RST_INT_WDT:
-    return "watchdog d'interruption";
-  case ESP_RST_TASK_WDT:
-    return "watchdog de tache";
-  case ESP_RST_WDT:
-    return "autre watchdog";
-  case ESP_RST_BROWNOUT:
-    return "BROWNOUT (chute de tension)";
-  default:
-    return "inconnue";
-  }
-}
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial && millis() < 3000)
-    delay(10); // Laisse le moniteur se reconnecter
+  while (!Serial && millis() < 3000) delay(10);   // Laisse le moniteur se reconnecter
 
   Serial.println("=== SilkyOS boot ===");
-  Serial.printf("Dernier reset : %s\n", raisonReset());
+  Serial.printf("Dernier reset : %s\n", diagRaisonReset());
 
-  storageInit(); // Réglages NVS (avant tout le reste)
-  displayInit(); // Écran + rétroéclairage
-  encoderInit(); // Encodeur + bouton
-  batteryInit(); // Première mesure de la batterie
-  netInit();     // Tâche réseau sur le cœur 0
-  lvglInit();    // LVGL : affichage, thème, entrées
-  uiInit();      // Démarrage puis launcher
+  storageInit();        // Réglages NVS (avant tout le reste)
+  displayInit();        // Écran + rétroéclairage
+  encoderInit();        // Encodeur + bouton
+  batteryInit();        // Première mesure de la batterie
+  netInit();            // Tâche réseau sur le cœur 0
+  lvglInit();           // LVGL : affichage, thème, entrées
+  uiInit();             // Démarrage puis launcher
 }
 
 void loop() {
-  lv_timer_handler(); // Moteur LVGL : rendu, animations, lecture encodeur
-  uiUpdate();         // Interface : barres, veille, apps en fond, navigation
-  batteryTick();      // Mesure batterie (5 fois par seconde)
+  lv_timer_handler();   // Moteur LVGL : rendu, animations, lecture encodeur
+  uiUpdate();           // Interface : barres, veille, apps en fond, navigation
+  batteryTick();        // Mesure batterie (5 fois par seconde)
   delay(5);
 }
