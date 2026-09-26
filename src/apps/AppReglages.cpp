@@ -14,7 +14,7 @@ void wifiPageExit();
 void infosCreate(lv_obj_t *contenu);
 void infosExit();
 
-static lv_obj_t *sliderLumi, *swSens, *ddWifi, *ddRotation, *ddTheme;
+static lv_obj_t *sliderLumi, *swSens, *ddWifi, *ddRotation, *ddTheme, *ddVeille;
 static lv_obj_t *btnWifi, *btnSysteme, *labelReset;
 
 // Élément à refocaliser quand l'écran est reconstruit
@@ -33,6 +33,7 @@ static void rafraichirWidgets() {
   dropdownSetValeur(ddWifi,     reglages.modeWifi);
   dropdownSetValeur(ddRotation, reglages.rotation);
   dropdownSetValeur(ddTheme,    reglages.theme);
+  dropdownSetValeur(ddVeille,   reglages.veille);
 }
 
 // ---------- Callbacks ----------
@@ -64,6 +65,11 @@ static void themeCb(lv_event_t *e) {
   themeAppliquer(reglages.theme);
   focusRetour = FOCUS_THEME;       // On revient sur ce réglage après reconstruction
   uiRecharger();                   // L'écran sera recréé avec les nouvelles couleurs
+}
+
+static void veilleCb(lv_event_t *e) {
+  reglages.veille = lv_dropdown_get_selected(ddVeille);
+  storageSave();
 }
 
 static void pageWifiCb(lv_event_t *e) {
@@ -118,6 +124,7 @@ void reglagesCreate(lv_obj_t *contenu) {
   ddWifi     = creerDropdown(contenu, "WiFi",     "OFF\nAP\nBox",    wifiCb);
   ddRotation = creerDropdown(contenu, "Rotation", "0\n90\n180\n270", rotationCb);
   ddTheme    = creerDropdown(contenu, "Theme",    themeOptions(),    themeCb);
+  ddVeille   = creerDropdown(contenu, "Veille",   uiVeilleOptions(), veilleCb);
 
   // Sous-pages
   btnWifi    = creerBoutonPage(contenu, "Infos WiFi", pageWifiCb);

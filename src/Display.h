@@ -14,5 +14,6 @@ void displaySetRotation(uint8_t rotation);   // Rotation relative à ROTATION_BA
 int  displayWidth();
 int  displayHeight();
 void displayFlush(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t *px);
+void displayEteindre();                      // Coupe le rétroéclairage (veille)
 
 #endif

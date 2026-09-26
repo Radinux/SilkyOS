@@ -37,3 +37,7 @@ int encoderGetDelta() {
   interrupts();
   return delta;
 }
+
+void displayEteindre() {
+  ledcWrite(0, 0);          // Vraiment 0, sans le plancher de sécurité de displaySetBrightness()
+}

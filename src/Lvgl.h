@@ -11,4 +11,9 @@ int32_t  lvglPopScroll();                     // Crans de défilement (pages san
 bool     lvglBoutonPresse();                  // Pour la barre d'appui
 uint32_t lvglDebutAppui();
 
+// Veille
+uint32_t lvglInactivite();                    // ms depuis la dernière action de l'utilisateur
+void     lvglSetVeille(bool enVeille);        // En veille, les entrées ne servent qu'à réveiller
+bool     lvglPopReveil();                     // Vrai une fois si l'utilisateur a réveillé l'écran
+
 #endif

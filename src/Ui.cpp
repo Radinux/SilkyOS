@@ -8,6 +8,9 @@
 #include "Config.h"
 #include "Network.h"
 #include "Battery.h"
+#include "Clock.h"
+#include "Display.h"
+#include "Storage.h"
 
 static int8_t appActive = -1;        // -1 = menu principal
 static int8_t selection = 0;         // Dernière app ouverte (focus au retour)
@@ -18,6 +21,8 @@ static void (*pageExit)() = nullptr;
 
 static lv_obj_t *barreAppui    = nullptr;
 static lv_obj_t *labelBatterie = nullptr;    // ← déplacée ici
+static lv_obj_t *labelHeureBarre = nullptr;
+static bool      enVeille        = false;
 
 // Rechargement de l'écran courant, demandé depuis un callback (changement de thème...)
 static bool rechargementDemande = false;
@@ -220,6 +225,7 @@ static void afficherMenu(lv_screen_load_anim_t anim) {
   if (aFocus) lv_group_focus_obj(aFocus);
 
   lv_obj_set_hidden(labelBatterie, false);     // Pas sur le boot screen, mais partout ensuite
+  lv_obj_set_hidden(labelHeureBarre, false);    // Visible à partir du menu
   lv_screen_load_anim(ecran, anim, 200, 0, true);
   appActive = -1;
 }
@@ -279,6 +285,61 @@ static void creerIndicateurBatterie() {
   lv_obj_set_style_text_font(labelBatterie, &lv_font_montserrat_12, 0);
   lv_obj_align(labelBatterie, LV_ALIGN_TOP_RIGHT, -8, 4);   // Barre d'état, tout en haut
   lv_obj_set_hidden(labelBatterie, true);                   // Visible à partir du menu
+}
+
+// ---------- Horloge de la barre d'état ----------
+static void creerHorlogeBarre() {
+  labelHeureBarre = lv_label_create(lv_layer_top());
+  lv_obj_set_style_text_font(labelHeureBarre, &lv_font_montserrat_12, 0);
+  lv_obj_set_style_text_color(labelHeureBarre, lv_color_hex(COUL_TEXTE_2), 0);
+  lv_obj_align(labelHeureBarre, LV_ALIGN_TOP_LEFT, 8, 4);
+  lv_label_set_text(labelHeureBarre, "--:--");
+  lv_obj_set_hidden(labelHeureBarre, true);       // Visible à partir du menu
+}
+
+// Ne redessine que quand la minute change
+static void majHorlogeBarre() {
+  static int derniereMinute = -2;
+  struct tm t;
+  int minute = clockGet(&t) ? t.tm_hour * 60 + t.tm_min : -1;
+  if (minute == derniereMinute) return;
+  derniereMinute = minute;
+
+  if (minute < 0) lv_label_set_text(labelHeureBarre, "--:--");
+  else            lv_label_set_text_fmt(labelHeureBarre, "%02d:%02d", t.tm_hour, t.tm_min);
+}
+
+// ---------- Veille ----------
+// Durées en secondes, dans le même ordre que uiVeilleOptions() (0 = jamais)
+static const uint16_t DUREES_VEILLE[] = { 0, 15, 30, 60, 120, 300 };
+static const uint8_t  NB_DUREES       = sizeof(DUREES_VEILLE) / sizeof(DUREES_VEILLE[0]);
+
+const char *uiVeilleOptions() {
+  return "Jamais\n15 s\n30 s\n1 min\n2 min\n5 min";
+}
+
+static void reveiller() {
+  enVeille = false;
+  lvglSetVeille(false);
+  displaySetBrightness(reglages.luminosite);
+}
+
+static void gererVeille() {
+  bool otaActif = (netOtaEtat() != OTA_AUCUN);
+
+  if (enVeille) {
+    if (lvglPopReveil() || otaActif) reveiller();   // On rallume aussi pour montrer une mise à jour
+    return;
+  }
+
+  uint16_t duree = DUREES_VEILLE[reglages.veille < NB_DUREES ? reglages.veille : 0];
+  if (duree == 0 || otaActif) return;
+
+  if (lvglInactivite() > (uint32_t)duree * 1000) {
+    enVeille = true;
+    lvglSetVeille(true);
+    displayEteindre();
+  }
 }
 
 // Ne redessine que quand l'affichage change
@@ -499,6 +560,7 @@ static void majEcranMaj() {
 void uiInit() {
   creerBarreAppui();
   creerIndicateurBatterie();
+  creerHorlogeBarre();
   creerEcranMaj();         // Créé en dernier : il passe par-dessus tout
   afficherDemarrage();     // Le menu suivra tout seul, en fondu
 }
@@ -507,6 +569,8 @@ void uiUpdate() {
 
   majEcranMaj();
   majIndicateurBatterie();
+  majHorlogeBarre();
+  gererVeille();
 
   // Pendant une mise à jour, on ignore la navigation
   uint8_t ota = netOtaEtat();

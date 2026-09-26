@@ -11,6 +11,9 @@
 static const int LIGNES_BUFFER = 40;     // LVGL rend l'écran par bandes de 40 lignes
 static lv_display_t *disp = nullptr;
 static lv_group_t *groupe = nullptr;
+static bool     enVeille         = false;
+static bool     evtReveil        = false;
+static uint32_t derniereActivite = 0;
 
 // ---------- Horloge et affichage ----------
 static uint32_t tickMillis() { return millis(); }
@@ -34,9 +37,32 @@ static int32_t  evtScroll  = 0;
 static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
   static bool relacherAuProchain = false;
   static bool longTraite = false;
+  static bool avaler = false;      // Jette le geste qui a servi à réveiller l'écran
 
   int32_t diff = encoderGetDelta();
+  bool enfonce = (digitalRead(ENCODER_PUSH_BUTTON) == LOW);
+  ButtonTracker::State btn = bouton.update(enfonce);
 
+  // ---- Activité : alimente le compteur de veille ----
+  bool activite = (diff != 0) || btn.isPressed;
+  if (activite) derniereActivite = millis();
+
+  if (enVeille && activite) {
+    evtReveil = true;
+    avaler = true;
+  }
+
+  // ---- Geste de réveil : il rallume l'écran, et rien d'autre ----
+  if (avaler) {
+    data->enc_diff = 0;
+    data->state = LV_INDEV_STATE_RELEASED;
+    relacherAuProchain = false;
+    presse = false;
+    if (!btn.isPressed) avaler = false;   // Libéré seulement au relâchement du bouton
+    return;
+  }
+
+  // ---- Rotation ----
   if (lv_group_get_obj_count(groupe) == 0) {
     // Page sans widget focusable : la rotation sert au défilement (géré par Ui)
     evtScroll += diff;
@@ -49,10 +75,7 @@ static void encoderReadCb(lv_indev_t *indev, lv_indev_data_t *data) {
   }
   data->enc_diff = diff;
 
-  bool enfonce = (digitalRead(ENCODER_PUSH_BUTTON) == LOW);
-  ButtonTracker::State btn = bouton.update(enfonce);
-
-  // Suivi de l'appui (barre de progression)
+  // ---- Bouton ----
   if (btn.isPressed && !presse) debutAppui = millis();
   presse = btn.isPressed;
 
@@ -113,3 +136,11 @@ bool     lvglPopMenu()      { bool e = evtMenu;   evtMenu   = false; return e; }
 bool     lvglBoutonPresse() { return presse; }
 uint32_t lvglDebutAppui()   { return debutAppui; }
 int32_t  lvglPopScroll()    { int32_t d = evtScroll; evtScroll = 0; return d; }
+uint32_t lvglInactivite() { return millis() - derniereActivite; }
+
+void lvglSetVeille(bool v) {
+  enVeille = v;
+  if (!v) derniereActivite = millis();   // Au réveil, le compte à rebours repart de zéro
+}
+
+bool lvglPopReveil() { bool e = evtReveil; evtReveil = false; return e; }

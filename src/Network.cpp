@@ -4,6 +4,7 @@
 #include <ElegantOTA.h>
 #include "Network.h"
 #include "Storage.h"
+#include "Clock.h"
 
 enum Etat : uint8_t { ETAT_OFF, ETAT_CONNEXION, ETAT_CONNECTE, ETAT_ECHEC, ETAT_PORTAIL };
 
@@ -89,6 +90,7 @@ static void appliquerMode(uint8_t mode) {
 
       if (wm.autoConnect()) {                  // Bloquant... mais seulement pour CETTE tâche
         preparerOta();
+        clockDemarrerSynchro();              // Heure NTP dès qu'on a internet
         serveur.begin();
         serveurActif = true;
         etat = ETAT_CONNECTE;
