@@ -14,7 +14,7 @@ void wifiPageExit();
 void infosCreate(lv_obj_t *contenu);
 void infosExit();
 
-static lv_obj_t *sliderLumi, *swSens, *ddWifi, *ddRotation, *ddTheme, *ddVeille;
+static lv_obj_t *sliderLumi, *swSens, *ddWifi, *ddRotation, *ddTheme, *ddVeille, *ddMenu;
 static lv_obj_t *btnWifi, *btnSysteme, *labelReset;
 
 // Élément à refocaliser quand l'écran est reconstruit
@@ -34,6 +34,7 @@ static void rafraichirWidgets() {
   dropdownSetValeur(ddRotation, reglages.rotation);
   dropdownSetValeur(ddTheme,    reglages.theme);
   dropdownSetValeur(ddVeille,   reglages.veille);
+  dropdownSetValeur(ddMenu,     reglages.launcher);
 }
 
 // ---------- Callbacks ----------
@@ -84,6 +85,11 @@ static void pageSystemeCb(lv_event_t *e) {
   uiOuvrirPage("Systeme", infosCreate, infosExit);
 }
 
+static void menuCb(lv_event_t *e) {
+  reglages.launcher = lv_dropdown_get_selected(ddMenu);
+  storageSave();          // Le launcher sera construit avec ce style à son prochain affichage
+}
+
 // Double validation : 1er clic arme, 2e clic exécute, quitter le bouton désarme
 static void resetCb(lv_event_t *e) {
   if (lv_event_get_code(e) == LV_EVENT_DEFOCUSED) {
@@ -127,6 +133,7 @@ void reglagesCreate(lv_obj_t *contenu) {
   ddRotation = creerDropdown(contenu, "Rotation", "0\n90\n180\n270", rotationCb);
   ddTheme    = creerDropdown(contenu, "Theme",    themeOptions(),    themeCb);
   ddVeille   = creerDropdown(contenu, "Veille",   uiVeilleOptions(), veilleCb);
+  ddMenu     = creerDropdown(contenu, "Menu",     "Liste\nGrille",   menuCb);
 
   // Sous-pages
   btnWifi    = creerBoutonPage(contenu, "Infos WiFi", pageWifiCb);
