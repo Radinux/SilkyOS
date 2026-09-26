@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <esp_system.h>
+#include <esp_ota_ops.h>   // Partition du firmware en cours
+#include <nvs.h>           // Statistiques de la NVS
 #include "../App.h"
 #include "../Theme.h"
 #include "../Widgets.h"
@@ -10,6 +12,8 @@ static lv_obj_t   *barreBatt, *labelBatt, *labelTension;
 static lv_obj_t   *barreRam, *barrePsram, *labelRam, *labelPsram, *labelUptime;
 static lv_timer_t *timer = nullptr;
 
+// ---------- Jauges ----------
+// Valeur, couleur (accent → orange → rouge quand ça se remplit), texte en Ko
 static void majBarre(lv_obj_t *barre, lv_obj_t *label, uint32_t utilise, uint32_t total) {
   int pct = total ? (int)((uint64_t)utilise * 100 / total) : 0;
   lv_bar_set_value(barre, pct, LV_ANIM_ON);
@@ -21,6 +25,17 @@ static void majBarre(lv_obj_t *barre, lv_obj_t *label, uint32_t utilise, uint32_
                         (unsigned long)(utilise / 1024), (unsigned long)(total / 1024));
 }
 
+// Même jauge, mais le texte en Mo avec une décimale (le printf de LVGL n'affiche pas les float)
+static void majBarreMo(lv_obj_t *barre, lv_obj_t *label, uint32_t utilise, uint32_t total) {
+  majBarre(barre, label, utilise, total);            // Valeur et couleur
+  uint32_t u = utilise / 104858;                     // En dixièmes de Mo
+  uint32_t t = total   / 104858;
+  lv_label_set_text_fmt(label, "%lu.%lu/%lu.%lu Mo",
+                        (unsigned long)(u / 10), (unsigned long)(u % 10),
+                        (unsigned long)(t / 10), (unsigned long)(t % 10));
+}
+
+// ---------- Mises à jour périodiques ----------
 static void majBatterie() {
   // LVGL n'affiche pas les float par défaut : on formate les volts à la main
   int mv = (int)(batteryVolts() * 1000);
@@ -45,13 +60,14 @@ static void majInfos(lv_timer_t *) {
   uint32_t ht = ESP.getHeapSize(),  hl = ESP.getFreeHeap();
   uint32_t pt = ESP.getPsramSize(), pl = ESP.getFreePsram();
 
-  majBarre(barreRam,   labelRam,   ht - hl, ht);
-  majBarre(barrePsram, labelPsram, pt - pl, pt);
+  majBarre(barreRam,     labelRam,   ht - hl, ht);
+  majBarreMo(barrePsram, labelPsram, pt - pl, pt);
 
   unsigned long s = millis() / 1000;
   lv_label_set_text_fmt(labelUptime, "%02lu:%02lu:%02lu", s / 3600, (s / 60) % 60, s % 60);
 }
 
+// ---------- API de la page ----------
 void infosCreate(lv_obj_t *contenu) {
   // --- Carte héros : la puce ---
   lv_obj_t *heros = creerCarte(contenu);
@@ -68,13 +84,37 @@ void infosCreate(lv_obj_t *contenu) {
                         ESP.getChipCores(), (unsigned long)getCpuFrequencyMhz());
   lv_obj_set_style_text_color(details, lv_color_hex(COUL_TEXTE_2), 0);
 
+  lv_obj_t *memoires = lv_label_create(heros);
+  // Arrondi au Mo le plus proche (la puce annonce 8189 Ko de PSRAM, pas 8192)
+  lv_label_set_text_fmt(memoires, "Flash %lu Mo - PSRAM %lu Mo",
+                        (unsigned long)((ESP.getFlashChipSize() + (1 << 19)) >> 20),
+                        (unsigned long)((ESP.getPsramSize()     + (1 << 19)) >> 20));
+  lv_obj_set_width(memoires, lv_pct(100));                          // Passe à la ligne si besoin...
+  lv_obj_set_style_text_align(memoires, LV_TEXT_ALIGN_CENTER, 0);   // ...en restant centré
+  lv_obj_set_style_text_font(memoires, &lv_font_montserrat_12, 0);
+  lv_obj_set_style_text_color(memoires, lv_color_hex(COUL_TEXTE_2), 0);
+
   // --- Batterie ---
   barreBatt    = creerJauge(contenu, "Batterie", &labelBatt);
   labelTension = creerInfo(contenu, "Tension");
 
-  // --- Mémoire ---
+  // --- Mémoire vive ---
   barreRam   = creerJauge(contenu, "RAM",   &labelRam);
   barrePsram = creerJauge(contenu, "PSRAM", &labelPsram);
+
+  // --- Stockage : lu UNE seule fois, getSketchSize() relit tout le firmware en flash ! ---
+  lv_obj_t *labelFirmware;
+  lv_obj_t *barreFirmware = creerJauge(contenu, "Firmware", &labelFirmware);
+  const esp_partition_t *emplacement = esp_ota_get_running_partition();
+  majBarreMo(barreFirmware, labelFirmware, ESP.getSketchSize(), emplacement->size);
+
+  nvs_stats_t stats;
+  if (nvs_get_stats(nullptr, &stats) == ESP_OK) {
+    lv_obj_t *labelNvs;
+    lv_obj_t *barreNvs = creerJauge(contenu, "NVS", &labelNvs);
+    majBarre(barreNvs, labelNvs, stats.used_entries, stats.total_entries);
+    lv_label_set_text_fmt(labelNvs, "%u/%u", (unsigned)stats.used_entries, (unsigned)stats.total_entries);
+  }
 
   // --- Uptime ---
   labelUptime = creerInfo(contenu, "Uptime");

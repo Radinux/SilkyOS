@@ -118,6 +118,7 @@ lv_obj_t *creerInfo(lv_obj_t *parent, const char *titre) {
   lv_obj_set_style_text_color(t, lv_color_hex(COUL_TEXTE_2), 0);
 
   lv_obj_t *valeur = lv_label_create(carte);
+  lv_obj_set_width(valeur, lv_pct(100));      // Un texte trop long passe à la ligne au lieu de dépasser
   lv_label_set_text(valeur, "-");
   lv_obj_set_style_text_color(valeur, lv_color_hex(COUL_TEXTE), 0);
   return valeur;
@@ -130,6 +131,10 @@ lv_obj_t *creerJauge(lv_obj_t *parent, const char *nom, lv_obj_t **labelValeur) 
   lv_obj_t *entete = creerRangee(carte, nom, false);
   *labelValeur = lv_label_create(entete);
   lv_obj_set_style_text_color(*labelValeur, lv_color_hex(COUL_TEXTE_2), 0);
+  // La valeur prend toute la place à droite du nom, alignée à droite :
+  // si elle est trop longue, elle passe à la ligne au lieu de chevaucher le nom
+  lv_obj_set_flex_grow(*labelValeur, 1);
+  lv_obj_set_style_text_align(*labelValeur, LV_TEXT_ALIGN_RIGHT, 0);
 
   lv_obj_t *barre = lv_bar_create(carte);
   lv_obj_set_size(barre, lv_pct(100), 8);

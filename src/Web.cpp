@@ -6,6 +6,7 @@
 #include "Diag.h"
 #include "Meteo.h"
 #include "Network.h"
+#include "PsramAlloc.h"
 
 static WebServer *srv = nullptr;
 
@@ -142,7 +143,7 @@ static void pageAccueil() {
 }
 
 static void apiEtat() {
-  JsonDocument doc;
+  JsonDocument doc(allocPsram());     // Les données JSON sont rangées en PSRAM
   doc["version"] = SILKY_VERSION;
   doc["uptime"]  = millis() / 1000;
   doc["reset"]   = diagRaisonReset();

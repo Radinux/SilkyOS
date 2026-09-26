@@ -4,6 +4,7 @@
 #include <Preferences.h>
 #include "Meteo.h"
 #include "Network.h"
+#include "PsramAlloc.h"
 
 static const uint32_t PERIODE_MAJ = 30UL * 60 * 1000;   // Une mise à jour toutes les 30 min
 static const uint32_t DELAI_ESSAI = 60UL * 1000;        // Après un échec : nouvel essai 1 min plus tard
@@ -90,7 +91,7 @@ static bool telecharger(Meteo &m) {
   String corps = http.getString();
   http.end();
 
-  JsonDocument doc;
+  JsonDocument doc(allocPsram());     // Les données JSON sont rangées en PSRAM
   if (deserializeJson(doc, corps)) {
     Serial.println("[Meteo] Reponse JSON invalide");
     return false;
