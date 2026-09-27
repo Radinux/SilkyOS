@@ -7,6 +7,7 @@
 #include "Clock.h"
 #include "Meteo.h"
 #include "Web.h"
+#include "Rollback.h"
 
 enum Etat : uint8_t { ETAT_OFF, ETAT_CONNEXION, ETAT_CONNECTE, ETAT_ECHEC, ETAT_PORTAIL };
 
@@ -56,6 +57,7 @@ static void preparerServeur() {
   });
 
   ElegantOTA.onEnd([](bool succes) {
+    if (succes) rollbackArmer();      // Le prochain démarrage sera à l'essai
     otaPourcent = 100;
     otaEtat = succes ? OTA_REUSSI : OTA_ECHEC;
   });

@@ -13,19 +13,6 @@ static uint32_t    derniereMaj = UINT32_MAX;     // Données déjà affichées (
 
 static const char *jours[] = { "Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam." };
 
-// Icône et couleur selon le code météo WMO
-static void iconeMeteo(uint8_t c, const char **ico, uint32_t *couleur) {
-  if (c == 0)       { *ico = ICO_SOLEIL;     *couleur = 0xFFD60A; }
-  else if (c <= 2)  { *ico = ICO_METEO;      *couleur = 0xFFD60A; }
-  else if (c == 3)  { *ico = ICO_NUAGE;      *couleur = 0xAEAEB2; }
-  else if (c <= 48) { *ico = ICO_BROUILLARD; *couleur = 0xAEAEB2; }
-  else if (c <= 57) { *ico = ICO_BRUINE;     *couleur = 0x64D2FF; }
-  else if (c <= 67) { *ico = ICO_PLUIE;      *couleur = 0x0A84FF; }
-  else if (c <= 77) { *ico = ICO_NEIGE;      *couleur = 0xFFFFFF; }
-  else if (c <= 82) { *ico = ICO_PLUIE;      *couleur = 0x0A84FF; }
-  else if (c <= 86) { *ico = ICO_NEIGE;      *couleur = 0xFFFFFF; }
-  else              { *ico = ICO_ORAGE;      *couleur = 0xBF5AF2; }
-}
 
 static void majMeteo(lv_timer_t *) {
   Meteo m;

@@ -122,6 +122,7 @@ static void majEcranMaj() {
 // ================= Alertes =================
 static lv_obj_t   *voileAlerte   = nullptr;
 static lv_obj_t   *titreAlerte   = nullptr;
+static lv_obj_t   *btnOkAlerte   = nullptr;
 static lv_obj_t   *focusAvant    = nullptr;
 static lv_timer_t *timerClignote = nullptr;
 
@@ -140,8 +141,18 @@ static void fermerAlerteCb(lv_event_t *) {
   // "async" : on ne supprime pas un objet pendant qu'il est en train de nous appeler
   lv_obj_delete_async(voileAlerte);
   voileAlerte = nullptr;
+  btnOkAlerte = nullptr;
 
   if (focusAvant) lv_group_focus_obj(focusAvant);
+  focusAvant = nullptr;
+}
+
+// Texte d'alerte : jamais plus large que l'écran, il passe à la ligne et reste centré
+static lv_obj_t *creerTexteAlerte(lv_obj_t *parent, const lv_font_t *police, uint32_t couleur) {
+  lv_obj_t *l = creerTexte(parent, police, couleur);
+  lv_obj_set_width(l, lv_pct(90));
+  lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+  return l;
 }
 
 void uiAlerte(const char *titre, const char *texte) {
@@ -153,25 +164,39 @@ void uiAlerte(const char *titre, const char *texte) {
 
   voileAlerte = uiCreerVoile();
 
-  titreAlerte = creerTexte(voileAlerte, &lv_font_montserrat_28, COUL_ACCENT);
+  titreAlerte = creerTexteAlerte(voileAlerte, &lv_font_montserrat_28, COUL_ACCENT);
   lv_label_set_text(titreAlerte, titre);
 
-  lv_obj_t *sousTitre = creerTexte(voileAlerte, &lv_font_montserrat_14, COUL_TEXTE_2);
+  lv_obj_t *sousTitre = creerTexteAlerte(voileAlerte, &lv_font_montserrat_14, COUL_TEXTE_2);
   lv_label_set_text(sousTitre, texte);
 
-  lv_obj_t *btn = lv_button_create(voileAlerte);   // Ajouté tout seul au groupe
-  lv_obj_set_size(btn, lv_pct(60), LV_SIZE_CONTENT);
-  themeCarte(btn);
-  lv_obj_t *ok = lv_label_create(btn);
+  btnOkAlerte = lv_button_create(voileAlerte);    // Ajouté tout seul au groupe
+  lv_obj_set_size(btnOkAlerte, lv_pct(60), LV_SIZE_CONTENT);
+  themeCarte(btnOkAlerte);
+  lv_obj_t *ok = lv_label_create(btnOkAlerte);
   lv_label_set_text(ok, "OK");
   lv_obj_center(ok);
-  lv_obj_add_event_cb(btn, fermerAlerteCb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_add_event_cb(btnOkAlerte, fermerAlerteCb, LV_EVENT_CLICKED, nullptr);
 
   // Focus verrouillé sur OK : tourner l'encodeur ne peut plus rien sélectionner d'autre
-  lv_group_focus_obj(btn);
+  lv_group_focus_obj(btnOkAlerte);
   lv_group_focus_freeze(g, true);
 
   timerClignote = lv_timer_create(clignoteCb, 500, nullptr);
+}
+
+// Un nouvel écran vient de vider le groupe de focus (et l'ancien écran va disparaître)
+void superpositionsNouvelEcran() {
+  if (!voileAlerte || !btnOkAlerte) return;
+
+  focusAvant = nullptr;                           // Il appartenait à l'ancien écran : il va être détruit !
+
+  // Le groupe est gelé : on dégèle le temps de remettre OK dedans et de lui rendre le focus
+  lv_group_t *g = lv_group_get_default();
+  lv_group_focus_freeze(g, false);
+  lv_group_add_obj(g, btnOkAlerte);
+  lv_group_focus_obj(btnOkAlerte);
+  lv_group_focus_freeze(g, true);
 }
 
 // ================= API interne =================

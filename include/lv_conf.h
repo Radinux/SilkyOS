@@ -19,4 +19,15 @@
 
 #define LV_USE_LOG            0
 
+
+// ---------- Cadence ----------
+// 16 ms au lieu de 33 : l'encodeur est lu, les animations avancent et l'écran se redessine
+// jusqu'à 60 fois par seconde (si le processeur suit)
+#define LV_DEF_REFR_PERIOD  16
+
+// ---------- Accélérations ----------
+// Les ombres de même forme (le halo des tuiles) ne sont calculées qu'une fois, puis réutilisées
+#define LV_DRAW_SW_SHADOW_CACHE_SIZE  64
+
+
 #endif

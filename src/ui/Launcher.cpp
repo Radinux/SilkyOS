@@ -6,9 +6,10 @@
 #include "../Ui.h"
 #include "UiInterne.h"
 
-// Rebond au focus : l'échelle de la tuile suit une courbe qui dépasse légèrement puis revient
-static const lv_style_prop_t PROPS_ECHELLE[] = {
-  LV_STYLE_TRANSFORM_SCALE_X, LV_STYLE_TRANSFORM_SCALE_Y, LV_STYLE_PROP_INV   // INV = fin de liste
+// Rebond au focus : la tuile se soulève de quelques pixels, avec un léger dépassement.
+// Un décalage (translate) ne demande pas de calque, contrairement à un zoom : bien plus léger.
+static const lv_style_prop_t PROPS_REBOND[] = {
+  LV_STYLE_TRANSLATE_Y, LV_STYLE_PROP_INV                 // INV = fin de liste
 };
 static lv_style_transition_dsc_t transRebond;
 static bool transPrete = false;
@@ -25,25 +26,23 @@ static void clicCb(lv_event_t *e) {
   uiOuvrirApp((int8_t)(intptr_t)lv_event_get_user_data(e), uiAnimEntree());
 }
 
-// Pastille : dégradé vertical (haut éclairci → couleur de l'app) et icône blanche.
+// Pastille pleine de la couleur de l'app, icône blanche.
 // lueur = halo coloré dessous (en grille seulement : il faut de la place autour)
 static lv_obj_t *creerPastille(lv_obj_t *parent, uint8_t i, int32_t taille, int32_t rayon,
                                const lv_font_t *police, bool lueur) {
-  lv_color_t base = lv_color_hex(apps[i].couleur);
+  lv_color_t couleur = lv_color_hex(apps[i].couleur);
 
   lv_obj_t *p = lv_obj_create(parent);
   lv_obj_set_size(p, taille, taille);
   lv_obj_set_style_radius(p, rayon, 0);
-  lv_obj_set_style_bg_color(p, lv_color_lighten(base, LV_OPA_40), 0);   // Haut plus clair...
-  lv_obj_set_style_bg_grad_color(p, base, 0);                            // ...vers la couleur pleine
-  lv_obj_set_style_bg_grad_dir(p, LV_GRAD_DIR_VER, 0);
+  lv_obj_set_style_bg_color(p, couleur, 0);
   lv_obj_set_style_border_width(p, 0, 0);
   lv_obj_set_style_pad_all(p, 0, 0);
   lv_obj_set_scrollable(p, false);
 
   if (lueur) {
     lv_obj_set_style_shadow_width(p, 12, 0);
-    lv_obj_set_style_shadow_color(p, base, 0);
+    lv_obj_set_style_shadow_color(p, couleur, 0);
     lv_obj_set_style_shadow_opa(p, LV_OPA_50, 0);
     lv_obj_set_style_shadow_offset_y(p, 3, 0);
   }
@@ -92,13 +91,9 @@ static lv_obj_t *creerTuileApp(lv_obj_t *parent, uint8_t i) {
   lv_obj_set_style_pad_ver(btn, 8, 0);
   lv_obj_set_style_pad_hor(btn, 2, 0);
   lv_obj_set_style_pad_row(btn, 6, 0);
-
-  // Le zoom se fait depuis le centre de la tuile, avec la transition "rebond"
-  lv_obj_set_style_transform_pivot_x(btn, lv_pct(50), 0);
-  lv_obj_set_style_transform_pivot_y(btn, lv_pct(50), 0);
   lv_obj_set_style_transition(btn, &transRebond, 0);            // Retour à la normale
 
-  // Au focus : fond éclairé, bordure visible, et un zoom de ~9 % (256 = 100 %)
+  // Au focus : fond éclairé, bordure visible, et la tuile se soulève de 4 px en rebondissant
   const lv_style_selector_t etats[] = { LV_STATE_FOCUSED, LV_STATE_FOCUS_KEY };
   for (lv_style_selector_t s : etats) {
     lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, s);
@@ -106,7 +101,7 @@ static lv_obj_t *creerTuileApp(lv_obj_t *parent, uint8_t i) {
     lv_obj_set_style_border_opa(btn, LV_OPA_COVER, s);
     lv_obj_set_style_border_color(btn, lv_color_hex(COUL_ACCENT), s);
     lv_obj_set_style_outline_width(btn, 0, s);
-    lv_obj_set_style_transform_scale(btn, 280, s);
+    lv_obj_set_style_translate_y(btn, -4, s);
     lv_obj_set_style_transition(btn, &transRebond, s);          // Arrivée du focus
   }
 
@@ -127,7 +122,7 @@ static lv_obj_t *creerTuileApp(lv_obj_t *parent, uint8_t i) {
 void launcherAfficher(int8_t selection, lv_screen_load_anim_t anim) {
   // La description de transition doit exister tant que les tuiles vivent : static, créée une fois
   if (!transPrete) {
-    lv_style_transition_dsc_init(&transRebond, PROPS_ECHELLE, lv_anim_path_overshoot, 250, 0, nullptr);
+    lv_style_transition_dsc_init(&transRebond, PROPS_REBOND, lv_anim_path_overshoot, 250, 0, nullptr);
     transPrete = true;
   }
 

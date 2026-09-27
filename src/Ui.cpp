@@ -95,6 +95,7 @@ lv_obj_t *uiCreerLogo(lv_obj_t *parent, const lv_font_t *police) {
 
 lv_obj_t *uiCreerEcran(const char *titre, lv_obj_t **ecranOut) {
   lv_group_remove_all_objs(lv_group_get_default());   // Nouvel écran : le focus repart de zéro
+  superpositionsNouvelEcran();      // Une alerte ouverte récupère son bouton OK
   bool pay = uiPaysage();
 
   lv_obj_t *ecran = lv_obj_create(nullptr);

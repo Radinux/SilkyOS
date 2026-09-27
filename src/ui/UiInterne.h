@@ -33,6 +33,7 @@ void veilleReveiller();
 void superpositionsCreer();
 void superpositionsMaj();
 bool superpositionBloque();    // Mise à jour ou alerte à l'écran : navigation suspendue
+void superpositionsNouvelEcran();   // À appeler quand un nouvel écran vide le groupe de focus
 
 // ---------- Démarrage ----------
 void demarrageAfficher();

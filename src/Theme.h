@@ -27,5 +27,6 @@ void        themeInit();                    // Styles + palette sauvegardée
 void        themeAppliquer(uint8_t index);  // Change de palette
 void        themeCarte(lv_obj_t *obj);      // Style carte + surbrillance au focus
 const char *themeOptions();                 // "Bleu\nOrange\n..." pour un dropdown
+lv_color_t  themeFonduCarte();              // Couleur du bas d'une carte au repos (fondu d'accent)
 
 #endif

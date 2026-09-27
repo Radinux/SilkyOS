@@ -4,28 +4,50 @@
 
 // ---------- Palettes ----------
 // Même base sombre pour toutes, seul l'accent change.
-// Rien n'empêche plus tard d'ajouter des palettes aux fonds différents.
+// ⚠️ On ajoute toujours les nouvelles palettes À LA FIN : le thème sauvegardé est un numéro,
+// insérer au milieu décalerait le thème de tout le monde.
 const Palette palettes[] = {
-  //  nom        fond      carte     focus     texte     texte2    accent    vert      rouge
-  { "Bleu",    0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0x0A84FF, 0x30D158, 0xFF453A },
-  { "Orange",  0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0xFF9F0A, 0x30D158, 0xFF453A },
-  { "Menthe",  0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0x66D4CF, 0x30D158, 0xFF453A },
-  { "Violet",  0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0xBF5AF2, 0x30D158, 0xFF453A },
-  { "Rose",    0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0xFF375F, 0x30D158, 0xFF453A },
+  //  nom         fond      carte     focus     texte     texte2    accent    vert      rouge
+  { "Bleu",     0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0x0A84FF, 0x30D158, 0xFF453A },
+  { "Orange",   0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0xFF9F0A, 0x30D158, 0xFF453A },
+  { "Menthe",   0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0x66D4CF, 0x30D158, 0xFF453A },
+  { "Violet",   0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0xBF5AF2, 0x30D158, 0xFF453A },
+  { "Rose",     0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0xFF375F, 0x30D158, 0xFF453A },
+  { "Rouge",    0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0xFF453A, 0x30D158, 0xFF453A },
+  { "Jaune",    0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0xFFD60A, 0x30D158, 0xFF453A },
+  { "Vert",     0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0x30D158, 0x30D158, 0xFF453A },
+  { "Indigo",   0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0x5E5CE6, 0x30D158, 0xFF453A },
+  { "Cyan",     0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0x64D2FF, 0x30D158, 0xFF453A },
+  { "Graphite", 0x000000, 0x1C1C1E, 0x2C2C2E, 0xFFFFFF, 0x8E8E93, 0xAEAEB2, 0x30D158, 0xFF453A },
 };
 
 const uint8_t  NB_PALETTES   = sizeof(palettes) / sizeof(palettes[0]);
 const Palette *paletteActive = &palettes[0];
 
+// Force du fondu d'accent en bas des cartes (0 = aucun, 255 = accent pur)
+static const uint8_t FONDU_REPOS = 60;     
+static const uint8_t FONDU_FOCUS = 80;     // ~27 % : la carte sélectionnée ressort
+
 static lv_style_t styleCarte;
 static lv_style_t styleCarteFocus;
 
+// Mélange l'accent dans une couleur de carte
+static lv_color_t fondu(uint32_t carte, uint8_t force) {
+  return lv_color_mix(lv_color_hex(COUL_ACCENT), lv_color_hex(carte), force);
+}
+
+lv_color_t themeFonduCarte() { return fondu(COUL_CARTE, FONDU_REPOS); }
+
 // Recolore nos styles et prévient LVGL que les objets qui les utilisent doivent se redessiner
 static void majStyles() {
+  // Carte : couleur habituelle en haut, légèrement teintée d'accent en bas
   lv_style_set_bg_color(&styleCarte, lv_color_hex(COUL_CARTE));
+  lv_style_set_bg_grad_color(&styleCarte, fondu(COUL_CARTE, FONDU_REPOS));
   lv_style_set_text_color(&styleCarte, lv_color_hex(COUL_TEXTE));
 
+  // Carte sélectionnée : un cran plus claire, et un fondu plus marqué
   lv_style_set_bg_color(&styleCarteFocus, lv_color_hex(COUL_CARTE_FOCUS));
+  lv_style_set_bg_grad_color(&styleCarteFocus, fondu(COUL_CARTE_FOCUS, FONDU_FOCUS));
   lv_style_set_border_color(&styleCarteFocus, lv_color_hex(COUL_ACCENT));
 
   lv_obj_report_style_change(&styleCarte);
@@ -33,9 +55,10 @@ static void majStyles() {
 }
 
 void themeInit() {
-  // Carte : gris très foncé, bien arrondie, sans ombre
+  // Carte : gris très foncé, bien arrondie, sans ombre, avec un fondu vertical
   lv_style_init(&styleCarte);
   lv_style_set_bg_opa(&styleCarte, LV_OPA_COVER);
+  lv_style_set_bg_grad_dir(&styleCarte, LV_GRAD_DIR_VER);   // bg_color en haut → grad_color en bas
   lv_style_set_radius(&styleCarte, 14);
   lv_style_set_shadow_width(&styleCarte, 0);
   lv_style_set_border_width(&styleCarte, 2);             // Bordure TOUJOURS présente...
@@ -76,7 +99,7 @@ void themeCarte(lv_obj_t *obj) {
 }
 
 const char *themeOptions() {
-  static char options[128] = "";
+  static char options[192] = "";      // 11 noms et plus : de la marge
   if (options[0] == '\0') {            // Construit une seule fois
     for (uint8_t i = 0; i < NB_PALETTES; i++) {
       strcat(options, palettes[i].nom);
