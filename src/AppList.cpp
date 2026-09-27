@@ -1,4 +1,5 @@
 #include "App.h"
+#include "Icones.h"
 
 void horlogeCreate(lv_obj_t *contenu);
 void horlogeExit();
@@ -13,15 +14,18 @@ void snakeCreate(lv_obj_t *contenu);
 void snakeExit();
 void meteoCreate(lv_obj_t *contenu);
 void meteoExit();
+void radioCreate(lv_obj_t *contenu);
+void radioExit();
 
 const App apps[] = {
   //  nom          icone               couleur   onCreate        onExit        onFond
-  { "Horloge",   LV_SYMBOL_REFRESH,  0x5E5CE6, horlogeCreate,  horlogeExit,  nullptr      },
-  { "Chrono",    LV_SYMBOL_PLAY,     0x30D158, chronoCreate,   chronoExit,   nullptr      },
-  { "Minuteur",  LV_SYMBOL_BELL,     0xFF375F, minuteurCreate, minuteurExit, minuteurFond },
-  { "Snake",     LV_SYMBOL_SHUFFLE,  0xFFD60A, snakeCreate,    snakeExit,    nullptr      },
-  { "Meteo",     LV_SYMBOL_TINT,     0x64D2FF, meteoCreate,    meteoExit,    nullptr      },
-  { "Reglages",  LV_SYMBOL_SETTINGS, 0xFF9800, reglagesCreate, reglagesExit, nullptr      },
+  { "Horloge",   ICO_HORLOGE,   0x5E5CE6, horlogeCreate,  horlogeExit,  nullptr      },
+  { "Chrono",    ICO_CHRONO,    0x30D158, chronoCreate,   chronoExit,   nullptr      },
+  { "Minuteur",  ICO_MINUTEUR,  0xFF375F, minuteurCreate, minuteurExit, minuteurFond },
+  //{ "Radio",     ICO_RADIO,     0xBF5AF2, radioCreate,    radioExit,    nullptr      },
+  { "Snake",     ICO_JEU,       0xFFD60A, snakeCreate,    snakeExit,    nullptr      },
+  { "Meteo",     ICO_METEO,     0x64D2FF, meteoCreate,    meteoExit,    nullptr      },
+  { "Reglages",  ICO_REGLAGES,  0xFF9800, reglagesCreate, reglagesExit, nullptr      },
 };
 
 const uint8_t NB_APPS = sizeof(apps) / sizeof(apps[0]);

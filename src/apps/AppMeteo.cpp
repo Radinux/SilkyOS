@@ -1,16 +1,31 @@
 #include <Arduino.h>
 #include "../App.h"
 #include "../Clock.h"
+#include "../Icones.h"
 #include "../Meteo.h"
 #include "../Network.h"
 #include "../Theme.h"
 #include "../Widgets.h"
 
-static lv_obj_t   *labelVille, *labelTemp, *labelDesc, *labelDetails, *labelPrevi, *labelEtat;
+static lv_obj_t   *labelVille, *labelIcone, *labelTemp, *labelDesc, *labelDetails, *labelPrevi, *labelEtat;
 static lv_timer_t *timerMeteo  = nullptr;
 static uint32_t    derniereMaj = UINT32_MAX;     // Données déjà affichées (majMillis)
 
 static const char *jours[] = { "Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam." };
+
+// Icône et couleur selon le code météo WMO
+static void iconeMeteo(uint8_t c, const char **ico, uint32_t *couleur) {
+  if (c == 0)       { *ico = ICO_SOLEIL;     *couleur = 0xFFD60A; }
+  else if (c <= 2)  { *ico = ICO_METEO;      *couleur = 0xFFD60A; }
+  else if (c == 3)  { *ico = ICO_NUAGE;      *couleur = 0xAEAEB2; }
+  else if (c <= 48) { *ico = ICO_BROUILLARD; *couleur = 0xAEAEB2; }
+  else if (c <= 57) { *ico = ICO_BRUINE;     *couleur = 0x64D2FF; }
+  else if (c <= 67) { *ico = ICO_PLUIE;      *couleur = 0x0A84FF; }
+  else if (c <= 77) { *ico = ICO_NEIGE;      *couleur = 0xFFFFFF; }
+  else if (c <= 82) { *ico = ICO_PLUIE;      *couleur = 0x0A84FF; }
+  else if (c <= 86) { *ico = ICO_NEIGE;      *couleur = 0xFFFFFF; }
+  else              { *ico = ICO_ORAGE;      *couleur = 0xBF5AF2; }
+}
 
 static void majMeteo(lv_timer_t *) {
   Meteo m;
@@ -30,6 +45,7 @@ static void majMeteo(lv_timer_t *) {
 
   if (!ok) {
     if (derniereMaj != UINT32_MAX) {             // On efface une seule fois
+      lv_label_set_text(labelIcone, "");
       lv_label_set_text(labelTemp, "--");
       lv_label_set_text(labelDesc, "");
       lv_label_set_text(labelDetails, "");
@@ -41,6 +57,13 @@ static void majMeteo(lv_timer_t *) {
 
   if (m.majMillis == derniereMaj) return;        // Rien de neuf depuis le dernier affichage
   derniereMaj = m.majMillis;
+
+  // --- Temps actuel ---
+  const char *ico;
+  uint32_t couleurIcone;
+  iconeMeteo(m.code, &ico, &couleurIcone);
+  lv_label_set_text(labelIcone, ico);
+  lv_obj_set_style_text_color(labelIcone, lv_color_hex(couleurIcone), 0);
 
   lv_label_set_text_fmt(labelTemp, "%d", m.temp);
   lv_label_set_text(labelDesc, meteoDescription(m.code));
@@ -77,6 +100,11 @@ void meteoCreate(lv_obj_t *contenu) {
 
   labelVille = lv_label_create(heros);
   lv_obj_set_style_text_color(labelVille, lv_color_hex(COUL_TEXTE_2), 0);
+
+  // L'icône du temps, colorée selon la météo
+  labelIcone = lv_label_create(heros);
+  lv_label_set_text(labelIcone, "");
+  lv_obj_set_style_text_font(labelIcone, &silky_icones_32, 0);
 
   // La température en grand, avec le "C" en petit et en haut, façon exposant
   lv_obj_t *rangeeTemp = creerRangeeVide(heros);
