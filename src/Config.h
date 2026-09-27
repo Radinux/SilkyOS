@@ -15,6 +15,7 @@
 // Orientation "naturelle" du PCB pour LovyanGFX (0-3).
 // C'est le 0° vu par l'utilisateur.
 #define ROTATION_BASE  2
-#define SILKY_VERSION  "0.2"
+#define SILKY_VERSION  "0.3"  // Version affichée dans le menu "A propos"
+#define SILKY_BUILD  3      // Entier qui augmente à chaque version publiée
 
 #endif
