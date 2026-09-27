@@ -8,6 +8,7 @@
 #include "Meteo.h"
 #include "Web.h"
 #include "Rollback.h"
+#include "Fota.h"
 
 enum Etat : uint8_t { ETAT_OFF, ETAT_CONNEXION, ETAT_CONNECTE, ETAT_ECHEC, ETAT_PORTAIL };
 
@@ -122,13 +123,15 @@ static void tacheReseau(void *) {
     if (portailActif) wm.process();
     if (serveurActif) { serveur.handleClient(); ElegantOTA.loop(); }
     if (etat == ETAT_CONNECTE) meteoTache();      // Télécharge la météo quand c'est l'heure
+    if (etat == ETAT_CONNECTE) fotaTache();       // Vérifie s'il existe un firmware plus récent
 
     // Diagnostic : plus petite marge de pile jamais atteinte par cette tâche
+    // (sous ESP-IDF, uxTaskGetStackHighWaterMark renvoie directement des octets)
     static uint32_t dernierLog = 0;
     if (millis() - dernierLog > 10000) {
       dernierLog = millis();
       Serial.printf("[Reseau] pile libre min : %u octets\n",
-                    (unsigned)(uxTaskGetStackHighWaterMark(nullptr) * sizeof(StackType_t)));
+                    (unsigned)uxTaskGetStackHighWaterMark(nullptr));
     }
   }
 }
